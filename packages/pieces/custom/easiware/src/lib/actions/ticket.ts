@@ -30,6 +30,7 @@ export const getTicketFromID = createAction({
 });
 
 
+/*
 export const searchTickets = createAction({
   auth: easiwareAuth,
   name: 'search_tickets',
@@ -161,9 +162,11 @@ export const searchTickets = createAction({
 
     const qp = new URLSearchParams();
 
-    /* helper pour gérer tableaux CSV */
-    const csv = (val?: string) =>
-      val?.split(',').map((v) => v.trim()).filter(Boolean) || [];
+    // helper pour gérer tableaux CSV
+    const csv = (val?: string): string[] =>
+      val?.split(',')
+	    .map((v) => v.trim())
+	    .filter(Boolean) || [];
 
     if (p.search) qp.append('search', p.search);
     csv(p.contactId).forEach((x) => qp.append('contactId', x));
@@ -194,17 +197,28 @@ export const searchTickets = createAction({
       qp.append('customFieldsValues', JSON.stringify(p.customFieldsValues));
     }
 
-    const url = `${baseUrl}/v1/tickets?${qp.toString()}`;
+    const queryParamsg | string[]> = {};
+    for (const [key, value] of qp) {
+      if (Array.isArray(value)) {
+	      for (const v of value) {
+		      queryParams.append([key,v])
+	      }
+      } else
+	      queryParams.append([key, value])
+    }
+    const url = `${baseUrl}/v1/tickets`;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,
       url,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      queryParams,
     });
     return response.status === 200 ? response.body : response;
   },
 });
 
+*/
 
 export const createTicket = createAction({
   auth: easiwareAuth,

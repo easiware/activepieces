@@ -11,7 +11,7 @@ import { getContactFromID, searchContact, createContact,
     updateContact, listContactCustomFields, getContactCustomFieldChoices } from './lib/actions/contact';
 import { getApiStatus, getAuthInfo, searchCategories,
     getCategoryFromID, searchUsers, getUserFromID, } from './lib/actions/misc';
-import { getTicketFromID, searchTickets, createTicket, updateTicket, getTicketMessages,
+import { getTicketFromID, createTicket, updateTicket, getTicketMessages,
     addMessageToTicket, searchTicketEvents, getTicketEventFromID,
     listTicketCustomFields, getTicketCustomFieldChoices, findTicketsByBody, } from './lib/actions/ticket';
 
@@ -76,7 +76,7 @@ export const easiwareAuth = PieceAuth.CustomAuth({
 
 export const easiware = createPiece({
   displayName: "Easiware",
-  description: 'Magic customer support software',
+  description: 'Lovely customer support software',
   minimumSupportedRelease: '0.36.1',
   logoUrl: 'https://app-staging.easiware.com/images/easiware-heart.svg',
   categories: [PieceCategory.CUSTOMER_SUPPORT],
@@ -98,7 +98,7 @@ export const easiware = createPiece({
     getUserFromID,
 
     getTicketFromID,
-    searchTickets,
+    //searchTickets,
     createTicket, 
     updateTicket,
     getTicketMessages,

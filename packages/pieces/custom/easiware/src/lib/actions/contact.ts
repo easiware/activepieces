@@ -1,5 +1,5 @@
 import { createAction, Property } from '@activepieces/pieces-framework';
-import { httpClient, HttpMethod } from '@activepieces/pieces-common';
+import { HttpRequest, httpClient, HttpMethod } from '@activepieces/pieces-common';
 import { easiwareAuth } from '../..';
 
 export const getContactFromID = createAction({
@@ -260,6 +260,7 @@ export const createContact = createAction({
     const body = Object.fromEntries(
       Object.entries(context.propsValue)
         .filter(([, v]) => v !== undefined && v !== null && v !== '')
+	.map(([k, v]) => [k, String(v)])          // <- garantit string
     );
 
     const response = await httpClient.sendRequest({
@@ -384,9 +385,9 @@ export const updateContact = createAction({
 
     const { id, ...rawProps } = context.propsValue;
     const body = Object.fromEntries(
-      Object.entries(rawProps).filter(
-        ([, v]) => v !== undefined && v !== null && v !== ''
-      ),
+      Object.entries(rawProps)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+	.map(([k, v]) => [k, String(v)])          // <- garantit string
     );
 
     const response = await httpClient.sendRequest({
@@ -414,7 +415,7 @@ export const listContactCustomFields = createAction({
     search: Property.ShortText({
       displayName: 'Search Text',
       description: 'Required search string to filter custom fields.',
-      required: true,
+      required: false,
     }),
   },
 
@@ -424,16 +425,21 @@ export const listContactCustomFields = createAction({
 
     const url = `${appUrl.replace(/\/$/, '')}/v1/contact-custom-fields`;
 
-    const response = await httpClient.sendRequest({
+    const request: HttpRequest = {
       method: HttpMethod.GET,
       url,
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      queryParams: { search },
-    });
+    };
 
+    // Ajoute le query param seulement si `search` n’est pas vide / blanc
+    if (typeof search === 'string' && search.trim() !== '') {
+      request.queryParams= { search: search.trim() };
+    }
+
+    const response = await httpClient.sendRequest(request);
     return response.status === 200 ? response.body : response;
   },
 });

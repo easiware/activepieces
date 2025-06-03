@@ -50,20 +50,21 @@ export const easiwareRegisterTrigger = ({
       await context.store.put(`easiware_${name}_trigger`, response.body);
     };
   }
-  // ─── Cas 2 : eventType est un tableau ──────────────────────────
+  // ─── Cas 2 : eventType est [label, Record]  ──────────────────────────
   else {
-	  const optionsArray = Object.entries(eventType).map(([value, label]) => ({ label, value }));
-
-
-	  props['eventType'] = Property['StaticDropdown']({
-		  displayName: 'Event Type',
-		  description: 'Choisissez le type d’évènement à écouter',
-		  required: true,
-		  options: {
-			  disabled: false,
-			  options: optionsArray,
-		  },
-	  });
+    const [dropdownLabel, dict] = eventType as [string, Record<string,string>];
+    props['eventType'] = Property.StaticDropdown({
+      displayName: dropdownLabel,
+      description: 'Choose the event type to listen for',
+      required: true,
+      options: {
+        disabled: false,
+        options: Object.entries(dict).map(([value, label]) => ({
+          label,
+          value,
+        })),
+      },
+    });
 
     onEnable = async (context) => {
       const response = await httpClient.sendRequest({
