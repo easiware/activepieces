@@ -30,7 +30,6 @@ export const getTicketFromID = createAction({
 });
 
 
-/*
 export const searchTickets = createAction({
   auth: easiwareAuth,
   name: 'search_tickets',
@@ -157,68 +156,100 @@ export const searchTickets = createAction({
 
   async run(context) {
     const token = context.auth.apiKey;
-    const p = context.propsValue;
+    const props = context.propsValue;
     const baseUrl = context.auth.appUrl.replace(/\/$/, '');
 
-    const qp = new URLSearchParams();
+    // Création d'un tableau pour les paramètres de requête
+    const queryParams: Array<{ key: string; value: string }> = [];
 
-    // helper pour gérer tableaux CSV
-    const csv = (val?: string): string[] =>
-      val?.split(',')
-	    .map((v) => v.trim())
-	    .filter(Boolean) || [];
+    // Helper pour les valeurs CSV
+    const parseCsv = (val?: string): string[] =>
+      val?.split(',').map(v => v.trim()).filter(Boolean) || [];
 
-    if (p.search) qp.append('search', p.search);
-    csv(p.contactId).forEach((x) => qp.append('contactId', x));
-    csv(p.agentId).forEach((x) => qp.append('agentId', x));
-    csv(p.categoryId).forEach((x) => qp.append('categoryId', x));
-    csv(p.originalRecipientEmailAddress).forEach((x) =>
-      qp.append('originalRecipientEmailAddress', x),
-    );
+    // Fonction pour ajouter des paramètres
+    const addParam = (key: string, value: string | string[] | undefined) => {
+      if (!value) return;
 
-    p.status?.forEach((x) => qp.append('status', x));
-    p.priority?.forEach((x) => qp.append('priority', x));
-    p.source?.forEach((x) => qp.append('source', x));
+      if (Array.isArray(value)) {
+        value.forEach(v => queryParams.push({ key, value: v }));
+      } else {
+        queryParams.push({ key, value });
+      }
+    };
 
-    if (p.deleted) qp.append('deleted', p.deleted);
-    if (p.unassigned) qp.append('unassigned', p.unassigned);
+    // Gestion des paramètres textuels
+    if (props.search) addParam('search', props.search);
 
-    [
-      'createdAfter',
-      'createdBefore',
-      'updatedAfter',
-      'updatedBefore',
-    ].forEach((k) => {
-      const v = (p as any)[k];
-      if (v) qp.append(k, v);
+    // Gestion des paramètres CSV
+    const csvFields = [
+      { key: 'contactId', value: props.contactId },
+      { key: 'agentId', value: props.agentId },
+      { key: 'categoryId', value: props.categoryId },
+      { key: 'originalRecipientEmailAddress', value: props.originalRecipientEmailAddress }
+    ];
+
+    csvFields.forEach(({ key, value }) => {
+      if (value) addParam(key, parseCsv(value));
     });
 
-    if (p.customFieldsValues && Object.keys(p.customFieldsValues).length) {
-      qp.append('customFieldsValues', JSON.stringify(p.customFieldsValues));
+    // Gestion des multi-selects
+    const multiSelects = [
+      { key: 'status', value: props.status },
+      { key: 'priority', value: props.priority },
+      { key: 'source', value: props.source }
+    ];
+
+    multiSelects.forEach(({ key, value }) => {
+      if (value && value.length > 0) addParam(key, value);
+    });
+
+    // Gestion des booléens
+    if (props.deleted) addParam('deleted', props.deleted);
+    if (props.unassigned) addParam('unassigned', props.unassigned);
+
+    // Gestion des dates
+    const dateFields = [
+      { key: 'createdAfter', value: props.createdAfter },
+      { key: 'createdBefore', value: props.createdBefore },
+      { key: 'updatedAfter', value: props.updatedAfter },
+      { key: 'updatedBefore', value: props.updatedBefore }
+    ];
+
+    dateFields.forEach(({ key, value }) => {
+      if (value) addParam(key, value);
+    });
+
+    // Gestion des champs personnalisés
+    if (props.customFieldsValues && Object.keys(props.customFieldsValues).length > 0) {
+      addParam('customFieldsValues', JSON.stringify(props.customFieldsValues));
     }
 
-    const queryParamsg | string[]> = {};
-    for (const [key, value] of qp) {
-      if (Array.isArray(value)) {
-	      for (const v of value) {
-		      queryParams.append([key,v])
-	      }
-      } else
-	      queryParams.append([key, value])
-    }
+    // Conversion en format attendu par Activepieces
+    const formattedQueryParams: Record<string, string> = {};
+    queryParams.forEach(param => {
+      if (formattedQueryParams[param.key]) {
+        formattedQueryParams[param.key] += `,${param.value}`;
+      } else {
+        formattedQueryParams[param.key] = param.value;
+      }
+    });
+
     const url = `${baseUrl}/v1/tickets`;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,
       url,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      queryParams,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      queryParams: formattedQueryParams,
     });
+
     return response.status === 200 ? response.body : response;
   },
 });
 
-*/
 
 export const createTicket = createAction({
   auth: easiwareAuth,
