@@ -96,10 +96,10 @@ export const easiwareRegisterTrigger = ({
     onEnable,
     async onDisable(context: any) {                         // ← TS7006
       const webhook = await context.store.get(`easiware_${name}_trigger`);
-      if (webhook?.data.id) {
+      if (webhook?.id) {
         const request: HttpRequest = {
           method: HttpMethod.POST,
-          url: `${context.auth.appUrl}/v1/webhooks/${webhook.data.id}/detach`,
+          url: `${context.auth.appUrl}/v1/webhooks/${webhook.id}/detach`,
           headers: {
             Authorization: `Bearer ${context.auth.apiKey}`,
             'Content-Type': 'application/json',
