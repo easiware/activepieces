@@ -145,13 +145,6 @@ export const searchTickets = createAction({
       required: false,
     }),
 
-    customFieldsValues: Property.Json({
-      displayName: 'Custom fields (JSON)',
-      description:
-        'Key-value filters on custom ticket fields (must exist beforehand).',
-      required: false,
-      defaultValue: {},
-    }),
   },
 
   async run(context) {
@@ -219,10 +212,6 @@ export const searchTickets = createAction({
       if (value) addParam(key, value);
     });
 
-    // Gestion des champs personnalisés
-    if (props.customFieldsValues && Object.keys(props.customFieldsValues).length > 0) {
-      addParam('customFieldsValues', JSON.stringify(props.customFieldsValues));
-    }
 
     // Conversion en format attendu par Activepieces
     const formattedQueryParams: Record<string, string> = {};
@@ -341,21 +330,12 @@ export const createTicket = createAction({
     const token = context.auth.apiKey;
     const baseUrl = context.auth.appUrl.replace(/\/$/, '');
 
-    // Build request body with only provided props
-    const body: Record<string, unknown> = { source: context.propsValue.source };
-    [
-      'subject',
-      'status',
-      'priority',
-      'contactId',
-      'agentId',
-      'categoryId',
-      'originalRecipientEmailAddress',
-      'customFieldsValues',
-    ].forEach((k) => {
-      const v = (context.propsValue as any)[k];
-      if (v !== undefined && v !== null && v !== '') body[k] = v;
-    });
+    const body: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(context.propsValue)) {
+	    if (v !== undefined && v !== null && v !== '') {
+		    body[k] = v;
+	    }
+    }
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
@@ -434,26 +414,22 @@ export const updateTicket = createAction({
 
   async run(context) {
     const token = context.auth.apiKey;
-    const id = context.propsValue.ticketId;
     const baseUrl = context.auth.appUrl.replace(/\/$/, '');
 
-    /* Build PATCH payload with only provided fields */
+    // Traitement spécial pour customFieldsValues
+    const { ticketId, customFieldsValues, ...otherProps } = context.propsValue;
+
     const body: Record<string, unknown> = {};
-    [
-      'subject',
-      'status',
-      'priority',
-      'contactId',
-      'categoryId',
-      'customFieldsValues',
-    ].forEach((k) => {
-      const v = (context.propsValue as any)[k];
-      if (v !== undefined && v !== null && v !== '') body[k] = v;
-    });
+    for (const [k, v] of Object.entries(otherProps)) {
+	    if (v !== undefined && v !== null && v !== '') {
+		    body[k] = v;
+	    }
+    }
+    body['customFieldsValues'] = customFieldsValues;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.PATCH,
-      url: `${baseUrl}/v1/tickets/${id}`,
+      url: `${baseUrl}/v1/tickets/${ticketId}`,
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -905,13 +881,6 @@ export const findTicketsByBody = createAction({
       required: false,
     }),
 
-    customFieldsValues: Property.Json({
-      displayName: 'Custom fields values',
-      description:
-        'Key/value object for custom fields (must match the custom field definitions configured in easiware).',
-      required: false,
-      defaultValue: {},
-    }),
   },
 
   async run(ctx) {
@@ -933,8 +902,6 @@ export const findTicketsByBody = createAction({
     if (p.createdBefore) body['createdBefore'] = p.createdBefore;
     if (p.updatedAfter) body['updatedAfter'] = p.updatedAfter;
     if (p.updatedBefore) body['updatedBefore'] = p.updatedBefore;
-    if (Object.keys(p.customFieldsValues || {}).length)
-      body['customFieldsValues'] = p.customFieldsValues;
 
     /* Comma-separated → array helpers */
     const csvToArray = (txt?: string) =>

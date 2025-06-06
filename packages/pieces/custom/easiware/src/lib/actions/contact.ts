@@ -101,7 +101,7 @@ export const searchContact = createAction({
     }),
     languageCode: Property.ShortText({
       displayName: 'Language code',
-      description: 'The language code of the contact iso3166 alpha-2 exemple: FR',
+      description: 'The language code of the contact iso3166 alpha-2 exemple: fr',
       required: false,
     }),
     lastName: Property.ShortText({
@@ -180,7 +180,7 @@ export const createContact = createAction({
 
   props: {
     email: Property.ShortText({
-      displayName: 'Email address *',
+      displayName: 'Email address',
       description: 'Unique email address of the contact',
       required: true,
     }),
@@ -239,8 +239,8 @@ export const createContact = createAction({
       required: false,
     }),
     languageCode: Property.ShortText({
-      displayName: 'Country code',
-      description: 'The country code iso3166 alpha-2 exemple: FR',
+      displayName: 'Language code',
+      description: 'The Language code iso3166 alpha-2 exemple: fr',
       required: false,
     }),
     notes: Property.LongText({
@@ -257,11 +257,16 @@ export const createContact = createAction({
   async run(context) {
     const { apiKey: EAapiToken, appUrl } = context.auth;
 
-    const body = Object.fromEntries(
-      Object.entries(context.propsValue)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
-	.map(([k, v]) => [k, String(v)])          // <- garantit string
-    );
+    // Traitement spécial pour customFieldsValues
+    const { customFieldsValues, ...otherProps } = context.propsValue;
+
+    const body: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(otherProps)) {
+	    if (v !== undefined && v !== null && v !== '') {
+		    body[k] = v;
+	    }
+    }
+    body['customFieldsValues'] = customFieldsValues;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
@@ -276,12 +281,6 @@ export const createContact = createAction({
     return response.status === 201 ? response.body : response;
   },
 });
-
-
-/**
- * Action : mettre à jour un contact Easiware
- * (PATCH /v1/contacts/{id}) d’après le schéma `UpdateContactDto` de l’OpenAPI. :contentReference[oaicite:0]{index=0}
- */
 
 export const updateContact = createAction({
   auth: easiwareAuth,
@@ -384,20 +383,25 @@ export const updateContact = createAction({
     const { apiKey: EAapiToken, appUrl } = context.auth;
 
     const { id, ...rawProps } = context.propsValue;
-    const body = Object.fromEntries(
-      Object.entries(rawProps)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
-	.map(([k, v]) => [k, String(v)])          // <- garantit string
-    );
 
+    // Traitement spécial pour customFieldsValues
+    const { customFieldsValues, ...otherProps } = rawProps;
+
+    const body: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(otherProps)) {
+	    if (v !== undefined && v !== null && v !== '') {
+		    body[k] = v;
+	    }
+    }
+    body['customFieldsValues'] = customFieldsValues;
     const response = await httpClient.sendRequest({
-      method: HttpMethod.PATCH,
-      url: `${appUrl.replace(/\/$/, '')}/v1/contacts/${id}`,
-      headers: {
-        Authorization: `Bearer ${EAapiToken}`,
-        'Content-Type': 'application/json',
-      },
-      body,
+	    method: HttpMethod.PATCH,
+	    url: `${appUrl.replace(/\/$/, '')}/v1/contacts/${id}`,
+	    headers: {
+		    Authorization: `Bearer ${EAapiToken}`,
+		    'Content-Type': 'application/json',
+	    },
+	    body,
     });
 
     return response.status === 200 ? response.body : response;
