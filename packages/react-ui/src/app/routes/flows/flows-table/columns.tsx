@@ -4,6 +4,7 @@ import { EllipsisVertical } from 'lucide-react';
 import { Dispatch, SetStateAction } from 'react';
 
 import FlowActionMenu from '@/app/components/flow-actions-menu';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RowDataWithActions } from '@/components/ui/data-table';
 import { DataTableColumnHeader } from '@/components/ui/data-table/data-table-column-header';
@@ -37,6 +38,7 @@ export const flowsTableColumns = ({
         checked={
           table.getIsAllPageRowsSelected() || table.getIsSomePageRowsSelected()
         }
+        variant="secondary"
         onCheckedChange={(value) => {
           const isChecked = !!value;
           table.toggleAllPageRowsSelected(isChecked);
@@ -74,6 +76,7 @@ export const flowsTableColumns = ({
       );
       return (
         <Checkbox
+          variant="secondary"
           checked={isChecked}
           onCheckedChange={(value) => {
             const isChecked = !!value;
@@ -165,10 +168,7 @@ export const flowsTableColumns = ({
           className="flex items-center space-x-2"
           onClick={(e) => e.stopPropagation()}
         >
-          <FlowStatusToggle
-            flow={row.original}
-            flowVersion={row.original.version}
-          ></FlowStatusToggle>
+          <FlowStatusToggle flow={row.original}></FlowStatusToggle>
         </div>
       );
     },
@@ -202,7 +202,9 @@ export const flowsTableColumns = ({
               refetch();
             }}
           >
-            <EllipsisVertical className="h-10 w-10" />
+            <Button variant="ghost" size="icon" className="mr-8">
+              <EllipsisVertical className="h-4 w-4" />
+            </Button>
           </FlowActionMenu>
         </div>
       );

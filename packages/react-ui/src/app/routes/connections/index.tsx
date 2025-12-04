@@ -8,6 +8,7 @@ import {
   User,
   Replace,
   Trash2,
+  Plus,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -18,7 +19,6 @@ import { ReplaceConnectionsDialog } from '@/app/connections/replace-connections-
 import { ApAvatar } from '@/components/custom/ap-avatar';
 import { CopyTextTooltip } from '@/components/custom/clipboard/copy-text-tooltip';
 import { PermissionNeededTooltip } from '@/components/custom/permission-needed-tooltip';
-import { TableTitle } from '@/components/custom/table-title';
 import { ConfirmationDeleteDialog } from '@/components/delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,6 +26,7 @@ import {
   BulkAction,
   CURSOR_QUERY_PARAM,
   DataTable,
+  DataTableFilters,
   LIMIT_QUERY_PARAM,
   RowDataWithActions,
 } from '@/components/ui/data-table';
@@ -44,7 +45,7 @@ import {
 } from '@/features/connections/lib/app-connections-hooks';
 import { appConnectionUtils } from '@/features/connections/lib/utils';
 import PieceIconWithPieceName from '@/features/pieces/components/piece-icon-from-name';
-import { piecesHooks } from '@/features/pieces/lib/pieces-hook';
+import { piecesHooks } from '@/features/pieces/lib/pieces-hooks';
 import { useAuthorization } from '@/hooks/authorization-hooks';
 import { userHooks } from '@/hooks/user-hooks';
 import { authenticationSession } from '@/lib/authentication-session';
@@ -128,7 +129,7 @@ function AppConnectionsPage() {
     label: `${owner.firstName} ${owner.lastName} (${owner.email})`,
     value: owner.email,
   }));
-  const filters = [
+  const filters: DataTableFilters<keyof AppConnectionWithoutSensitiveData>[] = [
     {
       type: 'select',
       title: t('Status'),
@@ -140,28 +141,27 @@ function AppConnectionsPage() {
         };
       }),
       icon: CheckIcon,
-    } as const,
+    },
     {
       type: 'select',
       title: t('Pieces'),
       accessorKey: 'pieceName',
       icon: AppWindow,
       options: pieceOptions,
-    } as const,
+    },
     {
       type: 'input',
       title: t('Name'),
       accessorKey: 'displayName',
       icon: Tag,
-      options: [],
-    } as const,
+    },
     {
       type: 'select',
       title: t('Owner'),
       accessorKey: 'owner',
       icon: User,
       options: ownersOptions ?? [],
-    } as const,
+    },
   ];
 
   const columns: ColumnDef<
@@ -176,6 +176,7 @@ function AppConnectionsPage() {
             table.getIsAllPageRowsSelected() ||
             table.getIsSomePageRowsSelected()
           }
+          variant="secondary"
           onCheckedChange={(value) => {
             const isChecked = !!value;
             table.toggleAllPageRowsSelected(isChecked);
@@ -214,6 +215,7 @@ function AppConnectionsPage() {
         );
         return (
           <Checkbox
+            variant="secondary"
             checked={isChecked}
             disabled={isPlatformConnection}
             onCheckedChange={(value) => {
@@ -433,7 +435,6 @@ function AppConnectionsPage() {
                 >
                   <Button
                     variant="destructive"
-                    size="sm"
                     onClick={() => setShowDeleteDialog(true)}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -461,7 +462,6 @@ function AppConnectionsPage() {
                 >
                   <Button
                     variant="outline"
-                    size="sm"
                     disabled={!userHasPermissionToWriteAppConnection}
                   >
                     <Replace className="h-4 w-4" />
@@ -481,10 +481,9 @@ function AppConnectionsPage() {
                 >
                   <Button
                     variant="default"
-                    size="sm"
                     disabled={!userHasPermissionToWriteAppConnection}
                   >
-                    {t('New Connection')}
+                    <Plus className="h-4 w-4" /> {t('New Connection')}
                   </Button>
                 </NewConnectionDialog>
               </PermissionNeededTooltip>
@@ -497,11 +496,6 @@ function AppConnectionsPage() {
   );
   return (
     <div className="flex-col w-full">
-      <TableTitle
-        description={t('Manage project connections to external systems.')}
-      >
-        {t('Connections')}
-      </TableTitle>
       <DataTable
         emptyStateTextTitle={t('No connections found')}
         emptyStateTextDescription={t(

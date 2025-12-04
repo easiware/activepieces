@@ -1,13 +1,15 @@
+import { LATEST_CONTEXT_VERSION } from '@activepieces/pieces-framework'
 import {
-    ActionType,
+    FlowActionType,
     flowStructureUtil,
+    FlowTriggerType,
     FlowVersion,
     GenericStepOutput,
+    isNil,
     LoopStepOutput,
     RouterStepOutput,
     spreadIfDefined,
     StepOutputStatus,
-    TriggerType,
 } from '@activepieces/shared'
 import { createPropsResolver } from '../../variables/props-resolver'
 import { FlowExecutorContext } from './flow-execution-context'
@@ -21,8 +23,12 @@ export const testExecutionContext = {
         apiUrl,
         sampleData,
     }: TestExecutionParams): Promise<FlowExecutorContext> {
-        const flowSteps = flowStructureUtil.getAllSteps(flowVersion.trigger)
         let flowExecutionContext = FlowExecutorContext.empty()
+        if (isNil(flowVersion)) {
+            return flowExecutionContext
+        }
+        
+        const flowSteps = flowStructureUtil.getAllSteps(flowVersion.trigger)
 
         for (const step of flowSteps) {
             const { name } = step
@@ -32,7 +38,7 @@ export const testExecutionContext = {
 
             const stepType = step.type
             switch (stepType) {
-                case ActionType.ROUTER:
+                case FlowActionType.ROUTER:
                     flowExecutionContext = flowExecutionContext.upsertStep(
                         step.name,
                         RouterStepOutput.create({
@@ -43,11 +49,12 @@ export const testExecutionContext = {
                         }),
                     )
                     break
-                case ActionType.LOOP_ON_ITEMS: {
+                case FlowActionType.LOOP_ON_ITEMS: {
                     const { resolvedInput } = await createPropsResolver({
                         apiUrl,
                         projectId,
                         engineToken,
+                        contextVersion: LATEST_CONTEXT_VERSION,
                     }).resolve<{ items: unknown[] }>({
                         unresolvedInput: step.settings,
                         executionState: flowExecutionContext,
@@ -64,12 +71,12 @@ export const testExecutionContext = {
                     )
                     break
                 }
-                case ActionType.PIECE:
-                case ActionType.CODE:
-                case TriggerType.EMPTY:
-                case TriggerType.PIECE:
+                case FlowActionType.PIECE:
+                case FlowActionType.CODE:
+                case FlowTriggerType.EMPTY:
+                case FlowTriggerType.PIECE:
                     flowExecutionContext = flowExecutionContext.upsertStep(step.name, GenericStepOutput.create({
-                        input: step.settings,
+                        input: {},
                         type: stepType,
                         status: StepOutputStatus.SUCCEEDED,
                         ...spreadIfDefined('output', sampleData?.[step.name]),
@@ -83,7 +90,7 @@ export const testExecutionContext = {
 
 
 type TestExecutionParams = {
-    flowVersion: FlowVersion
+    flowVersion?: FlowVersion
     excludedStepName?: string
     projectId: string
     apiUrl: string

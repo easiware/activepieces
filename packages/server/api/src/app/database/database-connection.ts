@@ -1,5 +1,5 @@
 import { AppSystemProp } from '@activepieces/server-shared'
-import { ApEdition, ApEnvironment, isNil } from '@activepieces/shared'
+import { ApEdition, isNil } from '@activepieces/shared'
 import {
     ArrayContains,
     DataSource,
@@ -9,12 +9,12 @@ import {
     Raw,
     SelectQueryBuilder,
 } from 'typeorm'
-import { AgentEntity } from '../agents/agent-entity'
 import { AIProviderEntity } from '../ai/ai-provider-entity'
+import { AIUsageEntity } from '../ai/ai-usage-entity'
 import { AppConnectionEntity } from '../app-connection/app-connection.entity'
-import { AppEventRoutingEntity } from '../app-event-routing/app-event-routing.entity'
 import { UserIdentityEntity } from '../authentication/user-identity/user-identity-entity'
 import { AlertEntity } from '../ee/alerts/alerts-entity'
+import { PlatformAnalyticsReportEntity } from '../ee/analytics/platform-analytics-report.entity'
 import { ApiKeyEntity } from '../ee/api-keys/api-key-entity'
 import { AppCredentialEntity } from '../ee/app-credentials/app-credentials.entity'
 import { AppSumoEntity } from '../ee/appsumo/appsumo.entity'
@@ -37,13 +37,11 @@ import { FlowEntity } from '../flows/flow/flow.entity'
 import { FlowRunEntity } from '../flows/flow-run/flow-run-entity'
 import { FlowVersionEntity } from '../flows/flow-version/flow-version-entity'
 import { FolderEntity } from '../flows/folder/folder.entity'
-import { IssueEntity } from '../flows/issues/issues-entity'
-import { TriggerEventEntity } from '../flows/trigger-events/trigger-event.entity'
 import { DatabaseType, system } from '../helper/system/system'
-import { McpEntity } from '../mcp/mcp-entity'
-import { McpRunEntity } from '../mcp/mcp-run/mcp-run.entity'
-import { McpToolEntity } from '../mcp/tool/mcp-tool.entity'
-import { PieceMetadataEntity } from '../pieces/piece-metadata-entity'
+import { McpServerEntity } from '../mcp/mcp-entity'
+import { PieceMetadataEntity } from '../pieces/metadata/piece-metadata-entity'
+import { PieceTagEntity } from '../pieces/tags/pieces/piece-tag.entity'
+import { TagEntity } from '../pieces/tags/tag-entity'
 import { PlatformEntity } from '../platform/platform.entity'
 import { ProjectEntity } from '../project/project-entity'
 import { StoreEntryEntity } from '../store-entry/store-entry-entity'
@@ -52,13 +50,13 @@ import { CellEntity } from '../tables/record/cell.entity'
 import { RecordEntity } from '../tables/record/record.entity'
 import { TableWebhookEntity } from '../tables/table/table-webhook.entity'
 import { TableEntity } from '../tables/table/table.entity'
-import { PieceTagEntity } from '../tags/pieces/piece-tag.entity'
-import { TagEntity } from '../tags/tag-entity'
 import { TodoActivityEntity } from '../todos/activity/todos-activity.entity'
 import { TodoEntity } from '../todos/todo.entity'
+import { AppEventRoutingEntity } from '../trigger/app-event-routing/app-event-routing.entity'
+import { TriggerEventEntity } from '../trigger/trigger-events/trigger-event.entity'
+import { TriggerSourceEntity } from '../trigger/trigger-source/trigger-source-entity'
 import { UserEntity } from '../user/user-entity'
 import { UserInvitationEntity } from '../user-invitations/user-invitation.entity'
-import { WebhookSimulationEntity } from '../webhooks/webhook-simulation/webhook-simulation-entity'
 import { WorkerMachineEntity } from '../workers/machine/machine-entity'
 import { createPostgresDataSource } from './postgres-connection'
 import { createSqlLiteDataSource } from './sqlite-connection'
@@ -80,13 +78,11 @@ function getEntities(): EntitySchema<unknown>[] {
         StoreEntryEntity,
         UserEntity,
         AppConnectionEntity,
-        WebhookSimulationEntity,
         FolderEntity,
         PieceMetadataEntity,
         PlatformEntity,
         TagEntity,
         PieceTagEntity,
-        IssueEntity,
         AlertEntity,
         UserInvitationEntity,
         WorkerMachineEntity,
@@ -99,16 +95,16 @@ function getEntities(): EntitySchema<unknown>[] {
         TableWebhookEntity,
         UserIdentityEntity,
         TodoEntity,
-        McpEntity,
-        AgentEntity,
+        McpServerEntity,
         TodoActivityEntity,
-        McpToolEntity,
-        McpRunEntity,
+        AIUsageEntity,
+        TriggerSourceEntity,
     ]
 
     switch (edition) {
         case ApEdition.CLOUD:
         case ApEdition.ENTERPRISE:
+        case ApEdition.COMMUNITY:
             entities.push(
                 ProjectMemberEntity,
                 ProjectPlanEntity,
@@ -121,16 +117,13 @@ function getEntities(): EntitySchema<unknown>[] {
                 GitRepoEntity,
                 AuditEventEntity,
                 ProjectReleaseEntity,
-
+                PlatformAnalyticsReportEntity,
                 // CLOUD
                 AppSumoEntity,
                 ConnectionKeyEntity,
                 AppCredentialEntity,
                 PlatformPlanEntity,
-           
             )
-            break
-        case ApEdition.COMMUNITY:
             break
         default:
             throw new Error(`Unsupported edition: ${edition}`)
@@ -139,20 +132,9 @@ function getEntities(): EntitySchema<unknown>[] {
     return entities
 }
 
-const getSynchronize = (): boolean => {
-    const env = system.getOrThrow<ApEnvironment>(AppSystemProp.ENVIRONMENT)
-
-    const value: Partial<Record<ApEnvironment, boolean>> = {
-        [ApEnvironment.TESTING]: true,
-    }
-
-    return value[env] ?? false
-}
-
 export const commonProperties = {
     subscribers: [],
     entities: getEntities(),
-    synchronize: getSynchronize(),
 }
 
 let _databaseConnection: DataSource | null = null
@@ -184,6 +166,28 @@ export function AddAPArrayContainsToQueryBuilder<T extends ObjectLiteral>(
             for (const value of values) {
                 queryBuilder.andWhere(`${columnName} LIKE :value${values.indexOf(value)}`, { [`value${values.indexOf(value)}`]: `%${value}%` })
             }
+            break
+        }
+    }
+}
+
+export function AddAPArrayOverlapsToQueryBuilder<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    columnName: string,
+    values: string[],
+    paramName: string,
+): void {
+    switch (getDatabaseType()) {
+        case DatabaseType.POSTGRES:
+            queryBuilder.andWhere(`${columnName} && :${paramName}`, { [paramName]: values })
+            break
+        case DatabaseType.SQLITE3: {
+            const orConditions = values.map((_, index) => `${columnName} LIKE :${paramName}${index}`).join(' OR ')
+            const params = values.reduce((acc, value, index) => {
+                acc[`${paramName}${index}`] = `%${value}%`
+                return acc
+            }, {} as Record<string, string>)
+            queryBuilder.andWhere(`(${orConditions})`, params)
             break
         }
     }

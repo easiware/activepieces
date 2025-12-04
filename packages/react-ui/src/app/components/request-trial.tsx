@@ -22,7 +22,11 @@ export type FeatureKey =
   | 'ENTERPRISE_PIECES'
   | 'UNIVERSAL_AI'
   | 'SIGNING_KEYS'
-  | 'CUSTOM_ROLES';
+  | 'CUSTOM_ROLES'
+  | 'AGENTS'
+  | 'TABLES'
+  | 'TODOS'
+  | 'MCPS';
 
 type RequestTrialProps = {
   featureKey: FeatureKey;
@@ -51,13 +55,12 @@ export const RequestTrial = ({
       .join('&');
   };
 
-  const handleClick = () => {
+  const handleClick = () =>
     window.open(
       `https://www.activepieces.com/sales?${createQueryParams()}`,
       '_blank',
       'noopener noreferrer',
     );
-  };
 
   return (
     <Button variant={buttonVariant} onClick={handleClick}>

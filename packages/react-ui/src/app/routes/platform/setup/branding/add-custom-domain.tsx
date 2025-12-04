@@ -6,6 +6,7 @@ import { t } from 'i18next';
 import { Plus } from 'lucide-react';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -19,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { FormField, FormItem, Form, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { INTERNAL_ERROR_TOAST, toast } from '@/components/ui/use-toast';
+import { internalErrorToast } from '@/components/ui/sonner';
 import { customDomainApi } from '@/features/platform-admin/lib/custom-domain-api';
 import { api } from '@/lib/api';
 import { CustomDomain } from '@activepieces/ee-shared';
@@ -56,9 +57,7 @@ const AddCustomDomainDialog = React.memo(
       },
       onSuccess: (data) => {
         onAdd(data);
-        toast({
-          title: t('Success'),
-          description: t('Your changes have been saved.'),
+        toast.success(t('Your changes have been saved.'), {
           duration: 3000,
         });
         setOpen(false);
@@ -73,13 +72,11 @@ const AddCustomDomainDialog = React.memo(
               break;
             }
             default: {
-              console.log(error);
-              toast(INTERNAL_ERROR_TOAST);
+              internalErrorToast();
               break;
             }
           }
         }
-        setOpen(true);
       },
     });
 

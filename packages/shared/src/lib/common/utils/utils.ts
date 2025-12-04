@@ -26,16 +26,17 @@ export function insertAt<T>(array: T[], index: number, item: T): T[] {
     return [...array.slice(0, index), item, ...array.slice(index)]
 }
 
-export function debounce<T>(func: (...args: T[]) => void, wait: number): (...args: T[]) => void {
+export function debounce<T>(func: (...args: T[]) => void, wait: number): (key?: string, ...args: T[]) => void {
     let timeout: NodeJS.Timeout
-
-    return function (...args: T[]) {
+    let currentKey: string | undefined
+    return function (key?: string, ...args: T[]) {
         const later = () => {
-            clearTimeout(timeout)
             func(...args)
         }
-
-        clearTimeout(timeout)
+        if (currentKey === key) {
+            clearTimeout(timeout)
+        }
+        currentKey = key
         timeout = setTimeout(later, wait)
     }
 }
@@ -125,4 +126,22 @@ export function chunk<T>(records: T[], size: number) {
         chunks.push(records.slice(i, i + size))
     }
     return chunks
+}
+
+export function partition<T>(array: T[], predicate: (item: T, index: number, arr: T[]) => boolean): [T[], T[]] {
+    const truthy: T[] = []
+    const falsy: T[] = []
+    array.forEach((item, idx) => {
+        if (predicate(item, idx, array)) {
+            truthy.push(item)
+        }
+        else {
+            falsy.push(item)
+        }
+    })
+    return [truthy, falsy]
+}
+
+export function unique<T>(array: T[]): T[] {
+    return array.filter((item, index, self) => index === self.findIndex(other => JSON.stringify(other) === JSON.stringify(item)))
 }

@@ -10,8 +10,9 @@ import { SelectUtilButton } from '../custom/select-util-button';
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   thin?: boolean;
 };
-const inputClass =
-  'flex-grow flex  h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 box-border';
+
+export const inputClass =
+  'flex h-9 w-full rounded-md border border-input-border bg-background px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm';
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, thin = false, ...props }, ref) => {
     const [fileName, setFileName] = React.useState<string | null>(null);
@@ -40,13 +41,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           onClick={handleDivClick}
           className={cn(inputClass, 'cursor-pointer items-center ', className)}
         >
-          <div
-            className={cn('flex truncate ', {
+          <input
+            className={cn('grow cursor-pointer outline-none', {
               'text-muted-foreground': !fileName,
             })}
-          >
-            {fileName || t('Select a file')}
-          </div>
+            value={fileName || t('Select a file')}
+            readOnly
+          />
           <div className="basis-1">
             <SelectUtilButton
               tooltipText={t('Select a file')}

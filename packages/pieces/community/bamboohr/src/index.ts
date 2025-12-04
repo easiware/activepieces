@@ -4,6 +4,7 @@ import {
   Property,
 } from '@activepieces/pieces-framework';
 import { createCustomApiCallAction } from '@activepieces/pieces-common';
+import { reportFieldChanged } from './lib/triggers/report-field-changed';
 
 export const bambooHrAuth = PieceAuth.CustomAuth({
   required: true,
@@ -32,12 +33,10 @@ export const bambooHr = createPiece({
   actions: [
     createCustomApiCallAction({
       baseUrl: (auth) =>
-        `https://api.bamboohr.com/api/gateway.php/${
-          (auth as { companyDomain: string }).companyDomain
-        }/v1/`,
+        `https://api.bamboohr.com/api/gateway.php/${auth?.props?.companyDomain}/v1/`,
       auth: bambooHrAuth,
       authMapping: async (auth) => {
-        const { apiKey } = auth as { apiKey: string };
+        const { apiKey } = auth.props;
         return {
           Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString(
             'base64'
@@ -46,5 +45,5 @@ export const bambooHr = createPiece({
       },
     }),
   ],
-  triggers: [],
+  triggers: [reportFieldChanged],
 });

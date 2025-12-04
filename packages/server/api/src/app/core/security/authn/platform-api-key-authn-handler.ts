@@ -1,6 +1,7 @@
 import { ApiKey } from '@activepieces/ee-shared'
 import {
     ActivepiecesError,
+    assertNotNullOrUndefined,
     EndpointScope,
     ErrorCode,
     isNil,
@@ -18,6 +19,7 @@ import { databaseConnection } from '../../../database/database-connection'
 import { apiKeyService } from '../../../ee/api-keys/api-key-service'
 import { ProjectMemberEntity } from '../../../ee/projects/project-members/project-member.entity'
 import { FlowEntity } from '../../../flows/flow/flow.entity'
+import { FlowRunEntity } from '../../../flows/flow-run/flow-run-entity'
 import { FolderEntity } from '../../../flows/folder/folder.entity'
 import { projectService } from '../../../project/project-service'
 import { requestUtils } from '../../request/request-utils'
@@ -31,13 +33,24 @@ export class PlatformApiKeyAuthnHandler extends BaseSecurityHandler {
     protected canHandle(request: FastifyRequest): Promise<boolean> {
         const prefix = `${PlatformApiKeyAuthnHandler.HEADER_PREFIX}${PlatformApiKeyAuthnHandler.API_KEY_PREFIX}`
         const routeMatches = request.headers[PlatformApiKeyAuthnHandler.HEADER_NAME]?.startsWith(prefix) ?? false
-        const skipAuth = request.routeConfig.skipAuth
+        const skipAuth = request.routeOptions.config?.skipAuth ?? false
         return Promise.resolve(routeMatches && !skipAuth)
     }
 
     protected async doHandle(request: FastifyRequest): Promise<void> {
         const apiKeyValue = this.extractApiKeyValue(request)
-        const apiKey = await apiKeyService.getByValueOrThrow(apiKeyValue)
+        let apiKey: ApiKey | null = null
+        try {
+            apiKey = await apiKeyService.getByValueOrThrow(apiKeyValue)
+        }
+        catch (e) {
+            throw new ActivepiecesError({
+                code: ErrorCode.AUTHENTICATION,
+                params: {
+                    message: 'invalid api key',
+                },
+            })
+        }
         const principal = await this.createPrincipal(request, apiKey)
         request.principal = principal
     }
@@ -72,7 +85,7 @@ export class PlatformApiKeyAuthnHandler extends BaseSecurityHandler {
             },
         }
 
-        if (request.routeConfig.scope === EndpointScope.PLATFORM) {
+        if (request.routeOptions.config?.scope === EndpointScope.PLATFORM) {
             return principal
         }
 
@@ -101,7 +114,9 @@ export class PlatformApiKeyAuthnHandler extends BaseSecurityHandler {
     ): Promise<ProjectId> {
         const projectIdFromRequest = requestUtils.extractProjectId(request)
         
-        const hasIdParam = request.routerPath.includes(':id') &&
+        const routerPath = request.routeOptions.url
+        assertNotNullOrUndefined(routerPath, 'routerPath is undefined'  )    
+        const hasIdParam = routerPath.includes(':id') &&
             isObject(request.params) &&
             'id' in request.params &&
             typeof request.params.id === 'string'
@@ -112,7 +127,7 @@ export class PlatformApiKeyAuthnHandler extends BaseSecurityHandler {
                 return projectIdFromResource
             }
             
-            const resourceName = extractResourceName(request.routerPath)
+            const resourceName = extractResourceName(routerPath)
             const resourceId = (request.params as { id: string }).id
             throw new ActivepiecesError({
                 code: ErrorCode.ENTITY_NOT_FOUND,
@@ -139,8 +154,10 @@ export class PlatformApiKeyAuthnHandler extends BaseSecurityHandler {
     private async extractProjectIdFromResource(
         request: FastifyRequest,
     ): Promise<string | undefined> {
+        const routerPath = request.routeOptions.url
+        assertNotNullOrUndefined(routerPath, 'routerPath is undefined'  )    
         const oneResourceRoute =
-            request.routerPath.includes(':id') &&
+            routerPath.includes(':id') &&
             isObject(request.params) &&
             'id' in request.params &&
             typeof request.params.id === 'string'
@@ -149,7 +166,7 @@ export class PlatformApiKeyAuthnHandler extends BaseSecurityHandler {
             return undefined
         }
 
-        const resourceName = extractResourceName(request.routerPath)
+        const resourceName = extractResourceName(routerPath)
         const { id } = request.params as { id: string }
         return this.getProjectIdFromResource(resourceName, id)
     }
@@ -175,6 +192,8 @@ export class PlatformApiKeyAuthnHandler extends BaseSecurityHandler {
             return undefined
         }
         switch (resource) {
+            case 'flow-runs':
+                return FlowRunEntity.options.name
             case 'flows':
                 return FlowEntity.options.name
             case 'app-connections':

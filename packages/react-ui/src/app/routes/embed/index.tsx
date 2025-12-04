@@ -1,16 +1,22 @@
 import { useMutation } from '@tanstack/react-query';
 import React from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { useEffectOnce } from 'react-use';
 
-import { memoryRouter } from '@/app/router';
+import { memoryRouter } from '@/app/guards';
 import { useEmbedding } from '@/components/embed-provider';
 import { useTheme } from '@/components/theme-provider';
 import { LoadingScreen } from '@/components/ui/loading-screen';
+import { useAuthorization } from '@/hooks/authorization-hooks';
 import { authenticationSession } from '@/lib/authentication-session';
 import { managedAuthApi } from '@/lib/managed-auth-api';
-import { combinePaths, parentWindow } from '@/lib/utils';
+import {
+  combinePaths,
+  determineDefaultRoute,
+  parentWindow,
+  routesThatRequireProjectId,
+} from '@/lib/utils';
 import {
   ActivepiecesClientAuthenticationFailed,
   ActivepiecesClientAuthenticationSuccess,
@@ -44,10 +50,9 @@ const handleVendorNavigation = ({ projectId }: { projectId: string }) => {
       event.data.type === ActivepiecesVendorEventName.VENDOR_ROUTE_CHANGED
     ) {
       const targetRoute = event.data.data.vendorRoute;
-      const targetRouteRequiresProjectId =
-        targetRoute.includes('/runs') ||
-        targetRoute.includes('/flows') ||
-        targetRoute.includes('/connections');
+      const targetRouteRequiresProjectId = Object.values(
+        routesThatRequireProjectId,
+      ).some((route) => targetRoute.includes(route));
       if (!targetRouteRequiresProjectId) {
         memoryRouter.navigate(targetRoute);
       } else {
@@ -82,7 +87,6 @@ const handleClientNavigation = () => {
 };
 
 const EmbedPage = React.memo(() => {
-  const navigate = useNavigate();
   const { setEmbedState, embedState } = useEmbedding();
   const { mutateAsync } = useMutation({
     mutationFn: async ({
@@ -101,6 +105,7 @@ const EmbedPage = React.memo(() => {
   });
   const { setTheme } = useTheme();
   const { i18n } = useTranslation();
+  const { checkAccess } = useAuthorization();
   const initState = (event: MessageEvent<ActivepiecesVendorInit>) => {
     if (
       event.source === parentWindow &&
@@ -118,34 +123,43 @@ const EmbedPage = React.memo(() => {
           {
             onSuccess: (data) => {
               authenticationSession.saveResponse(data, true);
-              const initialRoute = event.data.data.initialRoute ?? '/';
-              setEmbedState({
-                hideSideNav: event.data.data.hideSidebar,
-                isEmbedded: true,
-                hideFlowNameInBuilder:
-                  event.data.data.hideFlowNameInBuilder ?? false,
-                disableNavigationInBuilder:
-                  event.data.data.disableNavigationInBuilder !== false,
-                hideFolders: event.data.data.hideFolders ?? false,
-                sdkVersion: event.data.data.sdkVersion,
-                fontUrl: event.data.data.fontUrl,
-                fontFamily: event.data.data.fontFamily,
-                useDarkBackground:
-                  initialRoute.startsWith('/embed/connections'),
-                hideExportAndImportFlow:
-                  event.data.data.hideExportAndImportFlow ?? false,
-                hideHomeButtonInBuilder:
-                  event.data.data.disableNavigationInBuilder ===
-                  'keep_home_button_only'
-                    ? false
-                    : event.data.data.disableNavigationInBuilder,
-                emitHomeButtonClickedEvent:
-                  event.data.data.emitHomeButtonClickedEvent ?? false,
-                homeButtonIcon: event.data.data.homeButtonIcon ?? 'logo',
-                hideDuplicateFlow: event.data.data.hideDuplicateFlow ?? false,
+              const configuredRoute = event.data.data.initialRoute ?? '/';
+
+              const defaultRoute = determineDefaultRoute(checkAccess);
+              const initialRoute =
+                configuredRoute === '/' ? defaultRoute : configuredRoute;
+              //must use it to ensure that the correct router in RouterProvider is used before navigation
+              flushSync(() => {
+                setEmbedState({
+                  hideSideNav: event.data.data.hideSidebar,
+                  isEmbedded: true,
+                  hideFlowNameInBuilder:
+                    event.data.data.hideFlowNameInBuilder ?? false,
+                  disableNavigationInBuilder:
+                    event.data.data.disableNavigationInBuilder !== false,
+                  hideFolders: event.data.data.hideFolders ?? false,
+                  sdkVersion: event.data.data.sdkVersion,
+                  fontUrl: event.data.data.fontUrl,
+                  fontFamily: event.data.data.fontFamily,
+                  useDarkBackground:
+                    initialRoute.startsWith('/embed/connections'),
+                  hideExportAndImportFlow:
+                    event.data.data.hideExportAndImportFlow ?? false,
+                  hideHomeButtonInBuilder:
+                    event.data.data.disableNavigationInBuilder ===
+                    'keep_home_button_only'
+                      ? false
+                      : event.data.data.disableNavigationInBuilder,
+                  emitHomeButtonClickedEvent:
+                    event.data.data.emitHomeButtonClickedEvent ?? false,
+                  homeButtonIcon: event.data.data.homeButtonIcon ?? 'logo',
+                  hideDuplicateFlow: event.data.data.hideDuplicateFlow ?? false,
+                  hideFlowsPageNavbar:
+                    event.data.data.hideFlowsPageNavbar ?? false,
+                  hidePageHeader: event.data.data.hidePageHeader ?? false,
+                });
               });
-              console.log('embedState', embedState);
-              navigate(initialRoute);
+              memoryRouter.navigate(initialRoute);
               handleVendorNavigation({ projectId: data.projectId });
               handleClientNavigation();
               notifyVendorPostAuthentication();

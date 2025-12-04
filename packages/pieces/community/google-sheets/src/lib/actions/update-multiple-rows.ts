@@ -21,14 +21,15 @@ export const updateMultipleRowsAction = createAction({
 	props: {
 		...commonProps,
 		values: Property.DynamicProperties({
+			auth: googleSheetsAuth,
 			displayName: 'Values',
 			description: 'The values to update.',
 			required: true,
-			refreshers: ['sheetId', 'spreadsheetId'],
-			props: async ({ auth, spreadsheetId, sheetId }) => {
+			refreshers: ['sheetId', 'spreadsheetId', 'headerRow'],
+			props: async ({ auth, spreadsheetId, sheetId, headerRow }) => {
 				const sheet_Id = Number(sheetId);
 				const spreadsheet_Id = spreadsheetId as unknown as string;
-				const authentication = auth as OAuth2PropertyValue;
+				const authentication = auth;
 
 				if (
 					!auth ||
@@ -46,6 +47,7 @@ export const updateMultipleRowsAction = createAction({
 					sheetId: sheet_Id,
 					rowIndex_s: 1,
 					rowIndex_e: 1,
+					headerRow: (headerRow as unknown as number) || 1,
 				});
 				const firstRow = headers[0].values ?? {};
 
@@ -90,6 +92,12 @@ export const updateMultipleRowsAction = createAction({
 				'Inserted values that are dates and formulas will be entered as strings and have no effect',
 			required: false,
 		}),
+		headerRow: Property.Number({
+			displayName: 'Header Row',
+			description: 'Which row contains the headers?',
+			required: true,
+			defaultValue: 1,
+		}),
 	},
 	async run(context) {
 		const {
@@ -97,6 +105,7 @@ export const updateMultipleRowsAction = createAction({
 			 sheetId:inputSheetId,
 			values: { values: rowValuesInput },
 			as_string: asString,
+			headerRow,
 		} = context.propsValue;
 
 		if (!areSheetIdsValid(inputSpreadsheetId, inputSheetId)) {

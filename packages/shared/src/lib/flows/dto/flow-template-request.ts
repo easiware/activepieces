@@ -5,7 +5,7 @@ import { FlowVersion } from '../flow-version'
 
 export const FlowVersionTemplate = Type.Omit(
     FlowVersion,
-    ['id', 'created', 'updated', 'flowId', 'state', 'updatedBy'],
+    ['id', 'created', 'updated', 'flowId', 'state', 'updatedBy', 'agentIds', 'connectionIds', 'backupFiles'],
 )
 
 export type FlowVersionTemplate = Static<typeof FlowVersionTemplate>
@@ -15,7 +15,7 @@ export enum TemplateType {
     PLATFORM = 'PLATFORM',
     PROJECT = 'PROJECT',
 }
- 
+
 export const FlowTemplate = Type.Object({
     ...BaseModelSchema,
     name: Type.String(),

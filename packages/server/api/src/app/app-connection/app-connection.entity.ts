@@ -2,6 +2,7 @@ import {
     AppConnection,
     AppConnectionStatus,
     User,
+    UserIdentity,
 } from '@activepieces/shared'
 import { EntitySchema } from 'typeorm'
 import {
@@ -14,7 +15,7 @@ import { EncryptedObject } from '../helper/encryption'
 
 export type AppConnectionSchema = Omit<AppConnection, 'value'> & {
     value: EncryptedObject
-    owner: User
+    owner?: (User & { identity?: UserIdentity })
 }
 
 export const AppConnectionEntity = new EntitySchema<AppConnectionSchema>({
@@ -63,12 +64,8 @@ export const AppConnectionEntity = new EntitySchema<AppConnectionSchema>({
     },
     indices: [
         {
-            name: 'idx_app_connection_project_ids_and_external_id',
-            columns: ['projectIds', 'externalId'],
-        },
-        {
-            name: 'idx_app_connection_platform_id',
-            columns: ['platformId'],
+            name: 'idx_app_connection_platform_id_and_external_id',
+            columns: ['platformId', 'externalId'],
         },
         {
             name: 'idx_app_connection_owner_id',

@@ -1,5 +1,5 @@
-import { ApFile, PieceAuth, Property } from '@activepieces/pieces-framework'
-import { ActionType, GenericStepOutput, StepOutputStatus, TriggerType } from '@activepieces/shared'
+import { ApFile, LATEST_CONTEXT_VERSION, PieceAuth, Property } from '@activepieces/pieces-framework'
+import { FlowActionType, FlowTriggerType, GenericStepOutput, PropertyExecutionType, PropertySettings, StepOutputStatus } from '@activepieces/shared'
 import { FlowExecutorContext } from '../../src/lib/handler/context/flow-execution-context'
 import { StepExecutionPath } from '../../src/lib/handler/context/step-execution-path'
 import { propsProcessor } from '../../src/lib/variables/props-processor'
@@ -9,13 +9,14 @@ const propsResolverService = createPropsResolver({
     projectId: 'PROJECT_ID',
     engineToken: 'WORKER_TOKEN',
     apiUrl: 'http://127.0.0.1:3000',
+    contextVersion: LATEST_CONTEXT_VERSION,
 })
 
 const executionState = FlowExecutorContext.empty()
     .upsertStep(
         'trigger',
         GenericStepOutput.create({
-            type: TriggerType.PIECE,
+            type: FlowTriggerType.PIECE,
             status: StepOutputStatus.SUCCEEDED,
             input: {},
             output: {
@@ -40,7 +41,7 @@ const executionState = FlowExecutorContext.empty()
     .upsertStep('step_1',
         GenericStepOutput.create({
 
-            type: ActionType.PIECE,
+            type: FlowActionType.PIECE,
             status: StepOutputStatus.SUCCEEDED,
             input: {},
             output: {
@@ -48,7 +49,7 @@ const executionState = FlowExecutorContext.empty()
             },
         }))
     .upsertStep('step_2', GenericStepOutput.create({
-        type: ActionType.PIECE,
+        type: FlowActionType.PIECE,
         status: StepOutputStatus.SUCCEEDED,
         input: {},
         output: 'memory://{"fileName":"hello.png","data":"iVBORw0KGgoAAAANSUhEUgAAAiAAAAC4CAYAAADaI1cbAAA0h0lEQVR4AezdA5AlPx7A8Zxt27Z9r5PB2SidWTqbr26S9Hr/tm3btu3723eDJD3r15ec17vzXr+Z"}',
@@ -57,17 +58,19 @@ const executionState = FlowExecutorContext.empty()
 
 
 describe('Props resolver', () => {
+
+
     test('Test resolve inside nested loops', async () => {
 
         const modifiedExecutionState = executionState.upsertStep('step_3', GenericStepOutput.create({
-            type: ActionType.LOOP_ON_ITEMS,
+            type: FlowActionType.LOOP_ON_ITEMS,
             status: StepOutputStatus.SUCCEEDED,
             input: {},
             output: {
                 iterations: [
                     {
                         'step_8': GenericStepOutput.create({
-                            type: ActionType.PIECE,
+                            type: FlowActionType.PIECE,
                             status: StepOutputStatus.SUCCEEDED,
                             input: {},
                             output: {
@@ -76,14 +79,14 @@ describe('Props resolver', () => {
                             },
                         }),
                         'step_4': GenericStepOutput.create({
-                            type: ActionType.LOOP_ON_ITEMS,
+                            type: FlowActionType.LOOP_ON_ITEMS,
                             status: StepOutputStatus.SUCCEEDED,
                             input: {},
                             output: {
                                 iterations: [
                                     {
                                         'step_7': GenericStepOutput.create({
-                                            'type': ActionType.PIECE,
+                                            'type': FlowActionType.PIECE,
                                             'status': StepOutputStatus.SUCCEEDED,
                                             'input': {
                                                 'unit': 'seconds',
@@ -345,7 +348,7 @@ describe('Props resolver', () => {
                 required: true,
             }),
         }
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
         expect(processedInput).toEqual({
             base64: null,
             base64WithMime: new ApFile('unknown.png', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAiAAAAC4CAYAAADaI1cbAAA0h0lEQVR4AezdA5AlPx7A8Zxt27Z9r5PB2SidWTqbr26S9Hr/tm3btu3723eDJD3r15ec17vzXr+Z', 'base64'), 'png'),
@@ -378,7 +381,7 @@ describe('Props resolver', () => {
             }),
         }
 
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
         expect(processedInput.documents[0].file).toBeDefined()
         expect(processedInput.documents[0].file.extension).toBe('svg')
         expect(processedInput.documents[0].file.filename).toBe('logo.svg')
@@ -408,7 +411,7 @@ describe('Props resolver', () => {
             }),
         }
 
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
         expect(processedInput.documents[0].file).toBeNull()
         expect(errors).toEqual({
             'documents': {
@@ -431,7 +434,7 @@ describe('Props resolver', () => {
             }),
 
         }
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
         expect(processedInput.file).toBeDefined()
         expect(processedInput.file.extension).toBe('svg')
         expect(processedInput.file.filename).toBe('logo.svg')
@@ -459,7 +462,7 @@ describe('Props resolver', () => {
                 required: false,
             }),
         }
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
 
         expect(processedInput.file).toBeDefined()
         expect(processedInput.file.extension).toBe('html')
@@ -496,7 +499,7 @@ describe('Props resolver', () => {
                     required: true,
                 }),
             },
-        }), true, undefined)
+        }), true, {})
 
         expect(processedInput).toEqual({
             auth: {
@@ -520,7 +523,7 @@ describe('Props resolver', () => {
         const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.CustomAuth({
             required: true,
             props: {},
-        }), false, undefined)
+        }), false, {})
 
         expect(processedInput).toEqual({
             price: 0,
@@ -538,26 +541,30 @@ describe('Props resolver', () => {
                 },
             },
         }
-        const dynamicPropertiesSchema = {
+        const propertySettings: Record<string, PropertySettings> = {
             dynamicProp: {
-                items: Property.Array({
-                    displayName: 'Items',
-                    required: true,
-                    properties: {
-                        id: Property.Number({
-                            displayName: 'ID',
-                            required: true,
-                        }),
-                        name: Property.LongText({
-                            displayName: 'Name',
-                            required: true,
-                        }),
-                    },
-                }),
+                type: PropertyExecutionType.MANUAL,
+                schema: {
+                    items: Property.Array({
+                        displayName: 'Items',
+                        required: true,
+                        properties: {
+                            id: Property.Number({
+                                displayName: 'ID',
+                                required: true,
+                            }),
+                            name: Property.LongText({
+                                displayName: 'Name',
+                                required: true,
+                            }),
+                        },
+                    }),
+                },
             },
         }
         const props = {
             dynamicProp: Property.DynamicProperties({
+                auth: undefined,
                 displayName: 'Dynamic Property',
                 required: true,
                 props: async () => {
@@ -567,7 +574,7 @@ describe('Props resolver', () => {
             }),
         }
 
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, dynamicPropertiesSchema)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, propertySettings)
 
         expect(processedInput.dynamicProp.items).toEqual([
             { id: 1, name: 'Item 1' },
@@ -603,7 +610,7 @@ describe('Array Flatter Processor', () => {
             }),
         }
 
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
 
         expect(processedInput.items).toEqual([
             { id: 1, name: 'Item 1' },
@@ -636,7 +643,7 @@ describe('Array Flatter Processor', () => {
             }),
         }
 
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
 
         expect(processedInput.items).toEqual([
             { id: 1, name: 'Single Item' },
@@ -669,7 +676,7 @@ describe('Array Flatter Processor', () => {
             }),
         }
 
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
 
         expect(processedInput.items).toEqual([
             { id: 1, name: 'Item 1' },
@@ -678,6 +685,39 @@ describe('Array Flatter Processor', () => {
         ])
         expect(errors).toEqual({})
     })
+
+    it('should convert number to string for ShortText properties', async () => {
+        const input = {
+            items: {
+                id: 123,
+                name: 'Item Name',
+            },
+        }
+        const props = {
+            items: Property.Array({
+                displayName: 'Items',
+                required: true,
+                properties: {
+                    id: Property.ShortText({
+                        displayName: 'ID',
+                        required: true,
+                    }),
+                    name: Property.LongText({
+                        displayName: 'Name',
+                        required: true,
+                    }),
+                },
+            }),
+        }
+
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
+
+        expect(processedInput.items).toEqual([
+            { id: '123', name: 'Item Name' },
+        ])
+        expect(errors).toEqual({})
+    })
+
 
     it('should handle arrays with string values', async () => {
         const input = {
@@ -703,7 +743,7 @@ describe('Array Flatter Processor', () => {
             }),
         }
 
-        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, null)
+        const { processedInput, errors } = await propsProcessor.applyProcessorsAndValidators(input, props, PieceAuth.None(), false, {})
 
         expect(processedInput.items).toEqual([
             { id: '1', name: 'item1' },

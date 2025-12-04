@@ -27,7 +27,7 @@ const FlowVersionsList = () => {
     queryKey: ['flow-versions', flow.id],
     queryFn: () =>
       flowsApi.listVersions(flow.id, {
-        limit: 100,
+        limit: 1000,
         cursor: undefined,
       }),
     staleTime: 0,
@@ -46,7 +46,7 @@ const FlowVersionsList = () => {
             {flowVersionPage.data.map((flowVersion, index) => (
               <FlowVersionDetailsCard
                 selected={flowVersion.id === selectedFlowVersion?.id}
-                published={flow.publishedVersionId === flowVersion.id}
+                publishedVersionId={flow.publishedVersionId}
                 flowVersion={flowVersion}
                 flowVersionNumber={flowVersionPage.data.length - index}
                 key={flowVersion.id}

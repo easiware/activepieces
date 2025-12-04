@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { memoryRouter } from '@/app/guards';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { LoadingSpinner } from '@/components/ui/spinner';
+import { oauthAppsQueries } from '@/features/connections/lib/oauth-apps-hooks';
 import { cn, parentWindow } from '@/lib/utils';
 import {
   apId,
@@ -17,26 +19,22 @@ import {
   NEW_CONNECTION_QUERY_PARAMS,
 } from 'ee-embed-sdk';
 
-import { piecesHooks } from '../../../features/pieces/lib/pieces-hook';
+import { piecesHooks } from '../../../features/pieces/lib/pieces-hooks';
 import { CreateOrEditConnectionDialogContent } from '../../connections/create-edit-connection-dialog';
 
 const extractIdFromQueryParams = () => {
-  const connectionName = new URLSearchParams(window.location.search).get(
-    NEW_CONNECTION_QUERY_PARAMS.connectionName,
-  );
+  const connectionName = new URLSearchParams(
+    memoryRouter.state.location.search,
+  ).get(NEW_CONNECTION_QUERY_PARAMS.connectionName);
   return isNil(connectionName) || connectionName.length === 0
     ? apId()
     : connectionName;
 };
 export const EmbeddedConnectionDialog = () => {
   const connectionName = extractIdFromQueryParams();
-  const pieceName = new URLSearchParams(window.location.search).get(
-    NEW_CONNECTION_QUERY_PARAMS.name,
-  );
-  const randomId = new URLSearchParams(window.location.search).get(
-    NEW_CONNECTION_QUERY_PARAMS.randomId,
-  );
-  console.log(connectionName);
+  const queryParams = new URLSearchParams(memoryRouter.state.location.search);
+  const pieceName = queryParams.get(NEW_CONNECTION_QUERY_PARAMS.name);
+  const randomId = queryParams.get(NEW_CONNECTION_QUERY_PARAMS.randomId);
   return (
     <EmbeddedConnectionDialogContent
       connectionName={
@@ -116,6 +114,8 @@ const EmbeddedConnectionDialogContent = ({
     }
   }, [isSuccess, isLoadingPiece, pieceName]);
 
+  const { data: piecesOAuth2AppsMap, isPending: loadingPiecesOAuth2AppsMap } =
+    oauthAppsQueries.usePiecesOAuth2AppsMap();
   return (
     <Dialog
       open={isDialogOpen}
@@ -138,18 +138,17 @@ const EmbeddedConnectionDialogContent = ({
         )}
         withCloseButton={!isLoadingPiece}
       >
-        {isLoadingPiece && (
-          <div className="flex justify-center items-center">
-            <LoadingSpinner
-              size={50}
-              className="stroke-background"
-            ></LoadingSpinner>
-          </div>
-        )}
+        {isLoadingPiece ||
+          (loadingPiecesOAuth2AppsMap && (
+            <div className="flex justify-center items-center">
+              <LoadingSpinner className="stroke-background size-[50px]"></LoadingSpinner>
+            </div>
+          ))}
 
-        {!isLoadingPiece && pieceModel && (
+        {!isLoadingPiece && pieceModel && piecesOAuth2AppsMap && (
           <CreateOrEditConnectionDialogContent
             reconnectConnection={null}
+            piecesOAuth2AppsMap={piecesOAuth2AppsMap}
             piece={pieceModel}
             externalIdComingFromSdk={connectionName}
             isGlobalConnection={false}

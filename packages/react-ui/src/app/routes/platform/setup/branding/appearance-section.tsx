@@ -3,6 +3,7 @@ import { Static, Type } from '@sinclair/typebox';
 import { useMutation } from '@tanstack/react-query';
 import { t } from 'i18next';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { ColorPicker } from '@/components/ui/color-picker';
@@ -15,7 +16,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { INTERNAL_ERROR_TOAST, useToast } from '@/components/ui/use-toast';
 import { platformHooks } from '@/hooks/platform-hooks';
 import { platformApi } from '@/lib/platforms-api';
 
@@ -24,7 +24,6 @@ const FromSchema = Type.Object({
   logoUrl: Type.String(),
   iconUrl: Type.String(),
   faviconUrl: Type.String(),
-  language: Type.String(),
   color: Type.String(),
 });
 
@@ -43,8 +42,6 @@ export const AppearanceSection = () => {
     resolver: typeboxResolver(FromSchema),
   });
 
-  const { toast } = useToast();
-
   const { mutate: updatePlatform, isPending } = useMutation({
     mutationFn: async () => {
       platformApi.update(
@@ -60,18 +57,13 @@ export const AppearanceSection = () => {
       window.location.reload();
     },
     onSuccess: () => {
-      toast({
-        title: t('Success'),
-        description: t('Your changes have been saved.'),
+      toast.success(t('Your changes have been saved.'), {
         duration: 3000,
       });
       form.reset(form.getValues());
     },
-    onError: () => {
-      toast(INTERNAL_ERROR_TOAST);
-    },
   });
-
+  console.log(form.formState.isValid, form.getValues());
   return (
     <>
       <Separator className="my-2" />

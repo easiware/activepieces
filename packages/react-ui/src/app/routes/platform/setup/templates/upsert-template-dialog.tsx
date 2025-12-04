@@ -18,8 +18,8 @@ import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TagInput } from '@/components/ui/tag-input';
-import { INTERNAL_ERROR_TOAST, useToast } from '@/components/ui/use-toast';
 import { templatesApi } from '@/features/templates/lib/templates-api';
+import { api } from '@/lib/api';
 import { CreateFlowTemplateRequest } from '@activepieces/ee-shared';
 import {
   FlowTemplate,
@@ -36,7 +36,8 @@ const UpsertFlowTemplateSchema = Type.Object({
   }),
   description: Type.String(),
   blogUrl: Type.String(),
-  template: FlowVersionTemplate,
+  //avoid validating template because we need to migrate the template to the latest schema version in the backend
+  template: Type.Unknown(),
   tags: Type.Optional(Type.Array(Type.String())),
 });
 type UpsertFlowTemplateSchema = Static<typeof UpsertFlowTemplateSchema>;
@@ -61,17 +62,15 @@ export const UpsertTemplateDialog = ({
     resolver: typeboxResolver(UpsertFlowTemplateSchema),
   });
 
-  const { toast } = useToast();
-
   const { mutate, isPending } = useMutation({
     mutationKey: ['create-template'],
     mutationFn: () => {
       const formValue = form.getValues();
       return templatesApi.create({
         template: {
-          ...formValue.template,
+          ...(formValue.template as FlowVersionTemplate),
           displayName: formValue.displayName,
-          valid: formValue.template.valid ?? true,
+          valid: (formValue.template as FlowVersionTemplate).valid ?? true,
         },
         type: TemplateType.PLATFORM,
         blogUrl: formValue.blogUrl,
@@ -85,9 +84,12 @@ export const UpsertTemplateDialog = ({
       onDone();
       setOpen(false);
     },
-    onError: () => {
-      toast(INTERNAL_ERROR_TOAST);
-      setOpen(false);
+    onError: (error) => {
+      if (api.isError(error)) {
+        form.setError('template', {
+          message: error.message,
+        });
+      }
     },
   });
 
@@ -189,8 +191,10 @@ export const UpsertTemplateDialog = ({
                       e.target.files &&
                         e.target.files[0].text().then((text) => {
                           try {
-                            const json = JSON.parse(text) as FlowTemplate;
-                            field.onChange(json.template);
+                            const flowTemplate = JSON.parse(
+                              text,
+                            ) as FlowTemplate;
+                            field.onChange(flowTemplate.template);
                           } catch (e) {
                             form.setError('template', {
                               message: t('Invalid JSON'),

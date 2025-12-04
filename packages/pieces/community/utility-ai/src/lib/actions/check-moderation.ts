@@ -1,6 +1,7 @@
-import { ApFile, createAction, Property } from '@activepieces/pieces-framework';
+import { ApFile, createAction, PieceAuth, Property } from '@activepieces/pieces-framework';
 import { httpClient, HttpMethod } from '@activepieces/pieces-common';
-import { AIProviderWithoutSensitiveData, isNil, SeekPage } from '@activepieces/shared';
+import { isNil, SeekPage } from '@activepieces/shared';
+import { AI_USAGE_FEATURE_HEADER, AIProviderWithoutSensitiveData, AIUsageFeature } from '@activepieces/common-ai';
 import OpenAI from 'openai';
 import { ModerationMultiModalInput } from 'openai/resources/moderations';
 
@@ -11,6 +12,7 @@ export const checkModeration = createAction({
     'Classifies if text or image contains hate, hate/threatening, self-harm, sexual, sexual/minors, violence, or violence/graphic content.',
   props: {
     provider: Property.Dropdown<string, true>({
+      auth: PieceAuth.None(),
       displayName: 'Provider',
       required: true,
       refreshers: [],
@@ -40,9 +42,10 @@ export const checkModeration = createAction({
       },
   }),
   model: Property.Dropdown({
+    auth: PieceAuth.None(),
       displayName: 'Model',
       required: true,
-      defaultValue: 'gpt-4o',
+      defaultValue: 'omni-moderation-latest',
       refreshers: ['provider'],
       options: async (propsValue) => {
           const provider = propsValue['provider'] as string;
@@ -98,6 +101,9 @@ export const checkModeration = createAction({
     const client = new OpenAI({
       apiKey: engineToken,
       baseURL,
+      defaultHeaders: {
+        [AI_USAGE_FEATURE_HEADER]: AIUsageFeature.UTILITY_AI,
+      },
     });
 
     const input: ModerationMultiModalInput[] = [];

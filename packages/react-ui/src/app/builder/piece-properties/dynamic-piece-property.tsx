@@ -1,28 +1,44 @@
-import { useMutation } from '@tanstack/react-query';
 import deepEqual from 'deep-equal';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useDeepCompareEffectNoCheck } from 'use-deep-compare-effect';
 
 import { useBuilderStateContext } from '@/app/builder/builder-hooks';
-import { formUtils } from '@/app/builder/piece-properties/form-utils';
 import { SkeletonList } from '@/components/ui/skeleton';
-import { piecesApi } from '@/features/pieces/lib/pieces-api';
+import { formUtils } from '@/features/pieces/lib/form-utils';
+import { piecesHooks } from '@/features/pieces/lib/pieces-hooks';
+import { PiecePropertyMap, PropertyType } from '@activepieces/pieces-framework';
 import {
-  PiecePropertyMap,
-  PropertyType,
-  ExecutePropsResult,
-} from '@activepieces/pieces-framework';
-import { Action, Trigger } from '@activepieces/shared';
+  FlowAction,
+  FlowTrigger,
+  PropertyExecutionType,
+} from '@activepieces/shared';
 
 import { useStepSettingsContext } from '../step-settings/step-settings-context';
 
 import { AutoPropertiesFormComponent } from './auto-properties-form';
 import { DynamicPropertiesErrorBoundary } from './dynamic-piece-properties-error-boundary';
+import { DynamicPropertiesContext } from './dynamic-properties-context';
 type DynamicPropertiesProps = {
   refreshers: string[];
   propertyName: string;
   disabled: boolean;
+};
+
+const removeOptionsFromDropdownPropertiesSchema = (
+  schema: PiecePropertyMap,
+) => {
+  return Object.fromEntries(
+    Object.entries(schema).map(([key, value]) => {
+      if (
+        value.type === PropertyType.STATIC_DROPDOWN ||
+        value.type === PropertyType.STATIC_MULTI_SELECT_DROPDOWN
+      ) {
+        return [key, { ...value, options: { disabled: false, options: [] } }];
+      }
+      return [key, value];
+    }),
+  );
 };
 
 const DynamicPropertiesImplementation = React.memo(
@@ -31,63 +47,43 @@ const DynamicPropertiesImplementation = React.memo(
       state.flowVersion,
       state.readonly,
     ]);
-    const form = useFormContext<Action | Trigger>();
+    const form = useFormContext<FlowAction | FlowTrigger>();
     const { updateFormSchema } = useStepSettingsContext();
-    const isFirstRender = useRef(true);
-    const previousValues = useRef<undefined | unknown[]>(undefined);
-
+    const allInputValues = useWatch({
+      name: `settings.input`,
+      control: form.control,
+    });
+    const refreshersPropertiesNames = [...props.refreshers, 'auth'];
+    const refresherValues = refreshersPropertiesNames.reduce<
+      Record<string, unknown>
+    >((acc, refresher) => {
+      acc[refresher] = allInputValues[refresher];
+      return acc;
+    }, {});
+    const previousValues = useRef<Record<string, unknown>>(refresherValues);
+    const { propertyLoadingFinished, propertyLoadingStarted } = useContext(
+      DynamicPropertiesContext,
+    );
     const [propertyMap, setPropertyMap] = useState<
       PiecePropertyMap | undefined
     >(undefined);
-    const newRefreshers = [...props.refreshers, 'auth'];
 
-    const { mutate, isPending } = useMutation<
-      ExecutePropsResult<PropertyType.DYNAMIC>,
-      Error,
-      { input: Record<string, unknown> }
-    >({
-      mutationFn: async ({ input }) => {
-        const { settings } = form.getValues();
-        const actionOrTriggerName = settings.actionName ?? settings.triggerName;
-        const { pieceName, pieceVersion, pieceType, packageType } = settings;
-        return piecesApi.options<PropertyType.DYNAMIC>(
-          {
-            pieceName,
-            pieceVersion,
-            pieceType,
-            packageType,
-            propertyName: props.propertyName,
-            actionOrTriggerName,
-            input,
-            flowVersionId: flowVersion.id,
-            flowId: flowVersion.flowId,
-          },
-          PropertyType.DYNAMIC,
-        );
-      },
-      onError: (error) => {
-        console.error(error);
-      },
-    });
-    /* eslint-disable react-hooks/rules-of-hooks */
-    const refresherValues = newRefreshers.map((refresher) =>
-      useWatch({
-        name: `settings.input.${refresher}` as const,
-        control: form.control,
-      }),
-    );
-    /* eslint-enable react-hooks/rules-of-hooks */
-
-    useDeepCompareEffectNoCheck(() => {
-      const input: Record<string, unknown> = {};
-      newRefreshers.forEach((refresher, index) => {
-        input[refresher] = refresherValues[index];
+    const { mutate, isPending } =
+      piecesHooks.usePieceOptions<PropertyType.DYNAMIC>({
+        onMutate: () => {
+          propertyLoadingStarted(props.propertyName);
+        },
+        onError: (error) => {
+          console.error(error);
+          propertyLoadingFinished(props.propertyName);
+        },
+        onSuccess: () => {
+          propertyLoadingFinished(props.propertyName);
+        },
       });
 
-      if (
-        !isFirstRender.current &&
-        !deepEqual(previousValues.current, refresherValues)
-      ) {
+    useDeepCompareEffectNoCheck(() => {
+      if (!deepEqual(previousValues.current, refresherValues)) {
         // the field state won't be cleared if you only unset the parent prop value
         if (propertyMap) {
           Object.keys(propertyMap).forEach((childPropName) => {
@@ -95,7 +91,8 @@ const DynamicPropertiesImplementation = React.memo(
               `settings.input.${props.propertyName}.${childPropName}` as const,
               null,
               {
-                shouldValidate: true,
+                //never validate for each prop, it can be a long list of props and cause the browser to freeze
+                shouldValidate: false,
               },
             );
           });
@@ -106,37 +103,61 @@ const DynamicPropertiesImplementation = React.memo(
       }
 
       previousValues.current = refresherValues;
-      isFirstRender.current = false;
-
+      const { settings } = form.getValues();
+      const actionOrTriggerName = settings.actionName ?? settings.triggerName;
+      const { pieceName, pieceVersion } = settings;
       mutate(
-        { input },
+        {
+          request: {
+            pieceName,
+            pieceVersion,
+            propertyName: props.propertyName,
+            actionOrTriggerName: actionOrTriggerName,
+            input: refresherValues,
+            flowVersionId: flowVersion.id,
+            flowId: flowVersion.flowId,
+          },
+          propertyType: PropertyType.DYNAMIC,
+        },
         {
           onSuccess: (response) => {
             const currentValue = form.getValues(
               `settings.input.${props.propertyName}`,
             );
-            const customizedInput = form.getValues(
-              'settings.inputUiInfo.customizedInputs',
-            );
-            const defaultValue = formUtils.getDefaultValueForStep(
-              response.options,
-              currentValue ?? {},
-              customizedInput,
-            );
+            const defaultValue = formUtils.getDefaultValueForProperties({
+              props: response.options,
+              existingInput: currentValue ?? {},
+              propertySettings:
+                form.getValues().settings?.propertySettings?.[
+                  props.propertyName
+                ],
+            });
             setPropertyMap(response.options);
-
+            const schemaWithoutDropdownOptions =
+              removeOptionsFromDropdownPropertiesSchema(response.options);
             updateFormSchema(
               `settings.input.${props.propertyName}`,
-              response.options,
+              schemaWithoutDropdownOptions,
             );
 
             if (!readonly) {
-              const schemaInput: Record<string, unknown> =
-                form.getValues()?.settings?.inputUiInfo?.schema ?? {};
-              form.setValue(`settings.inputUiInfo.schema`, {
-                ...schemaInput,
-                [props.propertyName]: response.options,
-              } as Record<string, unknown>);
+              // previously the schema didn't have this property, so we need to set it
+              // we can't always set it to MANUAL, because some sub properties might be dynamic and have the same name as the dynamic property
+              // which will override the sub property exectuion type
+              if (
+                !form.getValues().settings?.propertySettings?.[
+                  props.propertyName
+                ]
+              ) {
+                form.setValue(
+                  `settings.propertySettings.${props.propertyName}.type`,
+                  PropertyExecutionType.MANUAL as unknown,
+                );
+              }
+              form.setValue(
+                `settings.propertySettings.${props.propertyName}.schema`,
+                schemaWithoutDropdownOptions,
+              );
             }
 
             form.setValue(
@@ -150,7 +171,7 @@ const DynamicPropertiesImplementation = React.memo(
           },
         },
       );
-    }, refresherValues);
+    }, [refresherValues]);
 
     return (
       <>

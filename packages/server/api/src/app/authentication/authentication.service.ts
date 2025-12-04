@@ -1,6 +1,6 @@
 import { OtpType } from '@activepieces/ee-shared'
 import { cryptoUtils } from '@activepieces/server-shared'
-import { ActivepiecesError, ApEdition, ApFlagId, assertNotNullOrUndefined, AuthenticationResponse, ErrorCode, isNil, PlatformRole, PlatformWithoutSensitiveData, User, UserIdentity, UserIdentityProvider } from '@activepieces/shared'
+import { ActivepiecesError, ApEdition, ApFlagId, assertNotNullOrUndefined, AuthenticationResponse, ErrorCode, isNil, PlatformRole, PlatformWithoutSensitiveData, ProjectType, User, UserIdentity, UserIdentityProvider } from '@activepieces/shared'
 import { FastifyBaseLogger } from 'fastify'
 import { otpService } from '../ee/authentication/otp/otp-service'
 import { flagService } from '../flags/flag.service'
@@ -169,7 +169,7 @@ async function assertUserCanSwitchToPlatform(currentPlatformId: string | null, p
         })
     }
     const samePlatform = currentPlatformId === platform.id
-    const allowToSwitch = !platformUtils.isEnterpriseCustomerOnCloud(platform) || samePlatform
+    const allowToSwitch = !platformUtils.isCustomerOnDedicatedDomain(platform) || samePlatform
     if (!allowToSwitch) {
         throw new ActivepiecesError({
             code: ErrorCode.AUTHENTICATION,
@@ -214,9 +214,11 @@ async function createUserAndPlatform(userIdentity: UserIdentity, log: FastifyBas
         displayName: userIdentity.firstName + '\'s Project',
         ownerId: user.id,
         platformId: platform.id,
+        type: ProjectType.PERSONAL,
     })
 
     const cloudEdition = system.getEdition()
+
     switch (cloudEdition) {
         case ApEdition.CLOUD:
             await otpService(log).createAndSend({
@@ -262,7 +264,7 @@ async function getPersonalPlatformIdForIdentity(identityId: string): Promise<str
     const edition = system.getEdition()
     if (edition === ApEdition.CLOUD) {
         const platforms = await platformService.listPlatformsForIdentityWithAtleastProject({ identityId })
-        const platform = platforms.find((platform) => !platformUtils.isEnterpriseCustomerOnCloud(platform))
+        const platform = platforms.find((platform) => !platformUtils.isCustomerOnDedicatedDomain(platform))
         return platform?.id ?? null
     }
     return null

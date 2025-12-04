@@ -1,4 +1,3 @@
-import { nanoid } from 'nanoid';
 import { Socket } from 'socket.io-client';
 
 import { api } from '@/lib/api';
@@ -11,10 +10,19 @@ import {
   WebsocketClientEvent,
   CreateStepRunRequestBody,
   StepRunResponse,
-  BulkRetryFlowRequestBody,
   SeekPage,
+  BulkActionOnRunsRequestBody,
+  BulkArchiveActionOnRunsRequestBody,
+  BulkCancelFlowRequestBody,
 } from '@activepieces/shared';
 
+type TestStepParams = {
+  socket: Socket;
+  request: CreateStepRunRequestBody;
+  // optional callback for steps like agent and todo
+  onProgress?: (progress: StepRunResponse) => void;
+  onFinsih?: () => void;
+};
 export const flowRunsApi = {
   list(request: ListFlowRunsRequestQuery): Promise<SeekPage<FlowRun>> {
     return api.get<SeekPage<FlowRun>>('/v1/flow-runs', request);
@@ -22,8 +30,14 @@ export const flowRunsApi = {
   getPopulated(id: string): Promise<FlowRun> {
     return api.get<FlowRun>(`/v1/flow-runs/${id}`);
   },
-  bulkRetry(request: BulkRetryFlowRequestBody): Promise<FlowRun[]> {
+  bulkRetry(request: BulkActionOnRunsRequestBody): Promise<FlowRun[]> {
     return api.post<FlowRun[]>('/v1/flow-runs/retry', request);
+  },
+  bulkCancel(request: BulkCancelFlowRequestBody): Promise<FlowRun[]> {
+    return api.post<FlowRun[]>('/v1/flow-runs/cancel', request);
+  },
+  bulkArchive(request: BulkArchiveActionOnRunsRequestBody): Promise<void> {
+    return api.post<void>('/v1/flow-runs/archive', request);
   },
   retry(flowRunId: string, request: RetryFlowRequestBody): Promise<FlowRun> {
     return api.post<FlowRun>(`/v1/flow-runs/${flowRunId}/retry`, request);
@@ -37,39 +51,44 @@ export const flowRunsApi = {
     const initialRun = await getInitialRun(socket, request.flowVersionId);
     onUpdate(initialRun);
   },
-  testStep(
-    socket: Socket,
-    request: Omit<CreateStepRunRequestBody, 'id'>,
-  ): Promise<StepRunResponse> {
-    const id = nanoid();
-    socket.emit(WebsocketServerEvent.TEST_STEP_RUN, {
-      ...request,
-      id,
-    });
+  async testStep(params: TestStepParams): Promise<StepRunResponse> {
+    const { socket, request, onProgress, onFinsih } = params;
+    const stepRun = await api.post<FlowRun>(
+      '/v1/sample-data/test-step',
+      request,
+    );
 
     return new Promise<StepRunResponse>((resolve, reject) => {
       const handleStepFinished = (response: StepRunResponse) => {
-        if (response.id === id) {
+        if (response.runId === stepRun.id) {
+          onFinsih?.();
           socket.off(
             WebsocketClientEvent.TEST_STEP_FINISHED,
             handleStepFinished,
           );
           socket.off('error', handleError);
-          console.log('clear TEST_STEP_FINISHED listener' + response.id);
-
           resolve(response);
         }
       };
 
       const handleError = (error: any) => {
+        onFinsih?.();
         socket.off(WebsocketClientEvent.TEST_STEP_FINISHED, handleStepFinished);
         socket.off('error', handleError);
-        console.log('clear TEST_STEP_FINISHED listener', error);
         reject(error);
       };
+
       socket.on(WebsocketClientEvent.TEST_STEP_FINISHED, handleStepFinished);
-      console.log('listened to TEST_STEP_FINISHED');
       socket.on('error', handleError);
+
+      if (onProgress) {
+        const handleOnProgress = (response: StepRunResponse) => {
+          if (response.runId === stepRun.id) {
+            onProgress(response);
+          }
+        };
+        socket.on(WebsocketClientEvent.TEST_STEP_PROGRESS, handleOnProgress);
+      }
     });
   },
 };
@@ -83,11 +102,9 @@ function getInitialRun(
         return;
       }
       socket.off(WebsocketClientEvent.TEST_FLOW_RUN_STARTED, onRunStarted);
-      console.log('clear TEST_FLOW_RUN_STARTED listener' + run.id);
       resolve(run);
     };
 
     socket.on(WebsocketClientEvent.TEST_FLOW_RUN_STARTED, onRunStarted);
-    console.log('listened to TEST_FLOW_RUN_STARTED');
   });
 }

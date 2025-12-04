@@ -6,8 +6,8 @@ import {
     ErrorCode,
     ExportTableResponse,
     isNil,
-    PlatformUsageMetric,
     SeekPage,
+    spreadIfDefined,
     Table,
     TableWebhook,
     TableWebhookEventType,
@@ -16,10 +16,8 @@ import {
 import { ILike, In } from 'typeorm'
 import { repoFactory } from '../../core/db/repo-factory'
 import { APArrayContains } from '../../database/database-connection'
-import { checkQuotaOrThrow } from '../../ee/platform/platform-plan/platform-plan-helper'
 import { buildPaginator } from '../../helper/pagination/build-paginator'
 import { paginationHelper } from '../../helper/pagination/pagination-utils'
-import { projectService } from '../../project/project-service'
 import { fieldService } from '../field/field.service'
 import { RecordEntity } from '../record/record.entity'
 import { TableWebhookEntity } from './table-webhook.entity'
@@ -34,13 +32,6 @@ export const tableService = {
         projectId,
         request,
     }: CreateParams): Promise<Table> {
-
-        const platformId = await projectService.getPlatformId(projectId)
-        await checkQuotaOrThrow({
-            platformId,
-            metric: PlatformUsageMetric.TABLES,
-        })
-
         const table = await tableRepo().save({
             id: apId(),
             externalId: request.externalId ?? apId(),
@@ -75,14 +66,13 @@ export const tableService = {
         return paginationHelper.createPage(paginationResult.data, paginationResult.cursor)
     },
 
-    async getById({
+    async getOneOrThrow({
         projectId,
         id,
     }: GetByIdParams): Promise<Table> {
         const table = await tableRepo().findOne({
             where: { projectId, id },
         })
-
         if (isNil(table)) {
             throw new ActivepiecesError({
                 code: ErrorCode.ENTITY_NOT_FOUND,
@@ -92,7 +82,23 @@ export const tableService = {
                 },
             })
         }
+        return table
+    },
 
+    async getOneByExternalIdOrThrow({
+        projectId,
+        externalId,
+    }: GetOneByExternalIdParams): Promise<Table> {
+        const table = await tableRepo().findOneBy({ projectId, externalId })
+        if (isNil(table)) {
+            throw new ActivepiecesError({
+                code: ErrorCode.ENTITY_NOT_FOUND,
+                params: {
+                    entityType: 'Table',
+                    entityId: externalId,
+                },
+            })
+        }
         return table
     },
 
@@ -100,6 +106,7 @@ export const tableService = {
         projectId,
         id,
     }: DeleteParams): Promise<void> {
+
         await tableRepo().delete({
             projectId,
             id,
@@ -110,7 +117,7 @@ export const tableService = {
         projectId,
         id,
     }: ExportTableParams): Promise<ExportTableResponse> {
-        const table = await this.getById({ projectId, id })
+        const table = await this.getOneOrThrow({ projectId, id })
 
         // TODO: Change field sorting to use position when it's added
         const fields = await fieldService.getAll({ projectId, tableId: id })
@@ -177,20 +184,19 @@ export const tableService = {
         id,
         request,
     }: UpdateParams): Promise<Table> {
-        await tableRepo().update({
-            id,
-            projectId,
-        }, {
-            name: request.name,
+        await tableRepo().update({ id, projectId }, { 
+            ...spreadIfDefined('name', request.name),
+            ...spreadIfDefined('trigger', request.trigger),
+            ...spreadIfDefined('status', request.status),
         })
-        return this.getById({ projectId, id })
+        return this.getOneOrThrow({ projectId, id })
     },
     async count({ projectId }: CountParams): Promise<number> {
         return tableRepo().count({
             where: { projectId },
         })
     },
-  
+
 }
 
 type CreateParams = {
@@ -209,6 +215,11 @@ type ListParams = {
 type GetByIdParams = {
     projectId: string
     id: string
+}
+
+type GetOneByExternalIdParams = {
+    projectId: string
+    externalId: string
 }
 
 type DeleteParams = {

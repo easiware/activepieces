@@ -2,14 +2,21 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { t } from 'i18next';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { INTERNAL_ERROR_TOAST, toast } from '@/components/ui/use-toast';
+import { internalErrorToast } from '@/components/ui/sonner';
 import { flowsApi } from '@/features/flows/lib/flows-api';
+import { api } from '@/lib/api';
 import { authenticationSession } from '@/lib/authentication-session';
-import { FlowOperationType, FlowTemplate } from '@activepieces/shared';
+import {
+  ApErrorParams,
+  ErrorCode,
+  FlowOperationType,
+  FlowTemplate,
+} from '@activepieces/shared';
 
 import { LoadingSpinner } from '../../../components/ui/spinner';
 import { PieceIconList } from '../../pieces/components/piece-icon-list';
@@ -36,8 +43,18 @@ const TemplateViewer = ({ template }: { template: FlowTemplate }) => {
     onSuccess: (data) => {
       navigate(`/flows/${data.id}`);
     },
-    onError: () => {
-      toast(INTERNAL_ERROR_TOAST);
+    onError: (error) => {
+      if (api.isError(error)) {
+        const apError = error.response?.data as ApErrorParams;
+        if (apError.code === ErrorCode.PERMISSION_DENIED) {
+          toast.error(t('Import Failed'), {
+            description: t("You don't have permission to import this template"),
+            duration: 3000,
+          });
+          return;
+        }
+      }
+      internalErrorToast();
     },
   });
 
@@ -69,7 +86,7 @@ const TemplateViewer = ({ template }: { template: FlowTemplate }) => {
               )}
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <Button variant={'secondary'} onClick={() => navigate('/flows')}>
+              <Button variant={'accent'} onClick={() => navigate('/flows')}>
                 {t('Cancel')}
               </Button>
               <Button loading={isPending} onClick={() => mutate()}>
@@ -92,7 +109,7 @@ const ShareTemplate: React.FC<{ templateId: string }> = ({ templateId }) => {
   if (!data) {
     return (
       <div className="w-full h-full flex items-center justify-center">
-        <LoadingSpinner size={50}></LoadingSpinner>
+        <LoadingSpinner isLarge={true}></LoadingSpinner>
       </div>
     );
   }

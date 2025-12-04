@@ -3,14 +3,15 @@ import { t } from 'i18next';
 import { Check, Copy, Info, AlertTriangle, Lightbulb } from 'lucide-react';
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import breaks from 'remark-breaks';
 import gfm from 'remark-gfm';
+import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
 import { MarkdownVariant } from '@activepieces/shared';
 
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
-import { useToast } from '../ui/use-toast';
 
 function applyVariables(markdown: string, variables: Record<string, string>) {
   if (typeof markdown !== 'string') {
@@ -72,7 +73,6 @@ const Container = ({
 const ApMarkdown = React.memo(
   ({ markdown, variables, variant, className, loading }: MarkdownProps) => {
     const [copiedText, setCopiedText] = useState<string | null>(null);
-    const { toast } = useToast();
 
     const { mutate: copyToClipboard } = useMutation({
       mutationFn: async (text: string) => {
@@ -82,8 +82,7 @@ const ApMarkdown = React.memo(
         setCopiedText(null);
       },
       onError: () => {
-        toast({
-          title: t('Failed to copy to clipboard'),
+        toast.error(t('Failed to copy to clipboard'), {
           duration: 3000,
         });
       },
@@ -101,18 +100,13 @@ const ApMarkdown = React.memo(
       return null;
     }
 
-    let markdownProcessed = applyVariables(markdown, variables ?? {});
-    markdownProcessed = markdownProcessed
-      .split('\n')
-      .map((line) => line.trim())
-      .join('\n');
-    markdownProcessed = markdownProcessed.split('\n').join('\n\n');
+    const markdownProcessed = applyVariables(markdown, variables ?? {});
 
     return (
       <Container variant={variant}>
         <ReactMarkdown
           className={cn('flex-grow w-full ', className)}
-          remarkPlugins={[gfm]}
+          remarkPlugins={[gfm, breaks]}
           components={{
             code(props) {
               const isLanguageText = props.className?.includes('language-text');
@@ -194,6 +188,19 @@ const ApMarkdown = React.memo(
             img: ({ node, ...props }) => <img className="my-8" {...props} />,
             b: ({ node, ...props }) => <b {...props} />,
             em: ({ node, ...props }) => <em {...props} />,
+            table: ({ node, ...props }) => (
+              <table className="w-full my-4 border-collapse" {...props} />
+            ),
+            thead: ({ node, ...props }) => (
+              <thead className="bg-muted" {...props} />
+            ),
+            tr: ({ node, ...props }) => (
+              <tr className="border-b border-border" {...props} />
+            ),
+            th: ({ node, ...props }) => (
+              <th className="text-left p-2 font-medium" {...props} />
+            ),
+            td: ({ node, ...props }) => <td className="p-2" {...props} />,
           }}
         >
           {markdownProcessed.trim()}

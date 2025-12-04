@@ -13,7 +13,6 @@ import {
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { TableTitle } from '@/components/custom/table-title';
 import { ConfirmationDeleteDialog } from '@/components/delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,7 +24,7 @@ import {
 import { DataTableColumnHeader } from '@/components/ui/data-table/data-table-column-header';
 import { StatusIconWithText } from '@/components/ui/status-icon-with-text';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { projectMembersHooks } from '@/features/team/lib/project-members-hooks';
+import { projectMembersHooks } from '@/features/members/lib/project-members-hooks';
 import { todosHooks } from '@/features/todos/lib/todo-hook';
 import { todoUtils } from '@/features/todos/lib/todo-utils';
 import { userHooks } from '@/hooks/user-hooks';
@@ -140,7 +139,6 @@ function TodosPage() {
                 >
                   <Button
                     variant="destructive"
-                    size="sm"
                     onClick={() => setShowDeleteDialog(true)}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -165,6 +163,7 @@ function TodosPage() {
             table.getIsAllPageRowsSelected() ||
             table.getIsSomePageRowsSelected()
           }
+          variant="secondary"
           onCheckedChange={(value) => {
             const isChecked = !!value;
             table.toggleAllPageRowsSelected(isChecked);
@@ -200,6 +199,7 @@ function TodosPage() {
         );
         return (
           <Checkbox
+            variant="secondary"
             checked={isChecked}
             onCheckedChange={(value) => {
               const isChecked = !!value;
@@ -247,10 +247,8 @@ function TodosPage() {
             <ApAvatar
               size="small"
               type={todoUtils.getAuthorType(row.original)}
-              fullName={authorName}
+              fullName={authorName ?? ''}
               userEmail={row.original.createdByUser?.email ?? ''}
-              pictureUrl={todoUtils.getAuthorPictureUrl(row.original)}
-              profileUrl={todoUtils.getAuthorProfileUrl(row.original)}
             />
             <div>{authorName}</div>
           </div>
@@ -263,26 +261,6 @@ function TodosPage() {
         <DataTableColumnHeader column={column} title={t('Assigned to')} />
       ),
       cell: ({ row }) => {
-        const hasAgent = row.original.agent;
-        if (hasAgent) {
-          return (
-            <div className="text-left">
-              <ApAvatar
-                type="agent"
-                size="small"
-                includeName={true}
-                pictureUrl={row.original.agent?.profilePictureUrl}
-                profileUrl={
-                  row.original.agent?.id
-                    ? `/agents/${row.original.agent.id}`
-                    : undefined
-                }
-                fullName={row.original.agent?.displayName ?? ''}
-              />
-            </div>
-          );
-        }
-
         return (
           <div className="text-left">
             {row.original.assignee && (
@@ -339,17 +317,6 @@ function TodosPage() {
 
   return (
     <div className="flex-col w-full">
-      <div className="flex items-center gap-2">
-        <TableTitle
-          description={t(
-            'Manage todos for your project that are created by automations',
-          )}
-          beta={true}
-        >
-          {t('Todos')}
-        </TableTitle>
-      </div>
-
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as 'all' | 'needs-action')}

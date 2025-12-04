@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/tooltip';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { FlowVersionStateDot } from '@/features/flows/components/flow-version-state-dot';
-import { flowsHooks } from '@/features/flows/lib/flows-hooks';
+import { flowHooks } from '@/features/flows/lib/flow-hooks';
 import { useAuthorization } from '@/hooks/authorization-hooks';
 import { formatUtils } from '@/lib/utils';
 import {
@@ -102,7 +102,7 @@ UseAsDraftDropdownMenuOption.displayName = 'UseAsDraftDropdownMenuOption';
 type FlowVersionDetailsCardProps = {
   flowVersion: FlowVersionMetadata;
   selected: boolean;
-  published: boolean;
+  publishedVersionId: string | undefined | null;
   flowVersionNumber: number;
 };
 const FlowVersionDetailsCard = React.memo(
@@ -110,7 +110,7 @@ const FlowVersionDetailsCard = React.memo(
     flowVersion,
     flowVersionNumber,
     selected,
-    published,
+    publishedVersionId,
   }: FlowVersionDetailsCardProps) => {
     const { checkAccess } = useAuthorization();
     const userHasPermissionToWriteFlow = checkAccess(Permission.WRITE_FLOW);
@@ -121,7 +121,7 @@ const FlowVersionDetailsCard = React.memo(
         state.setReadOnly,
       ]);
     const [dropdownMenuOpen, setDropdownMenuOpen] = useState(false);
-    const { mutate: viewVersion, isPending } = flowsHooks.useFetchFlowVersion({
+    const { mutate: viewVersion, isPending } = flowHooks.useFetchFlowVersion({
       onSuccess: (populatedFlowVersion) => {
         setBuilderVersion(populatedFlowVersion);
         setReadonly(
@@ -132,7 +132,7 @@ const FlowVersionDetailsCard = React.memo(
     });
 
     const { mutate: overWriteDraftWithVersion, isPending: isDraftPending } =
-      flowsHooks.useOverWriteDraftWithVersion({
+      flowHooks.useOverWriteDraftWithVersion({
         onSuccess: (populatedFlowVersion) => {
           setBuilderVersion(populatedFlowVersion.version);
           setLeftSidebar(LeftSideBarType.NONE);
@@ -180,19 +180,11 @@ const FlowVersionDetailsCard = React.memo(
             </Tooltip>
           )}
 
-          {flowVersion.state === FlowVersionState.DRAFT && (
-            <FlowVersionStateDot
-              state={flowVersion.state}
-              versionId={flowVersion.id}
-            ></FlowVersionStateDot>
-          )}
-
-          {published && flowVersion.state === FlowVersionState.LOCKED && (
-            <FlowVersionStateDot
-              state={flowVersion.state}
-              versionId={flowVersion.id}
-            ></FlowVersionStateDot>
-          )}
+          <FlowVersionStateDot
+            state={flowVersion.state}
+            versionId={flowVersion.id}
+            publishedVersionId={publishedVersionId}
+          ></FlowVersionStateDot>
 
           <DropdownMenu
             onOpenChange={(open) => setDropdownMenuOpen(open)}
@@ -204,12 +196,8 @@ const FlowVersionDetailsCard = React.memo(
                 disabled={isPending || isDraftPending}
                 size={'icon'}
               >
-                {(isPending || isDraftPending) && (
-                  <LoadingSpinner className="w-5 h-5" />
-                )}
-                {!isPending && !isDraftPending && (
-                  <DotsVerticalIcon className="w-5 h-5" />
-                )}
+                {(isPending || isDraftPending) && <LoadingSpinner />}
+                {!isPending && !isDraftPending && <DotsVerticalIcon />}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-40">
