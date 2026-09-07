@@ -110,10 +110,10 @@ export const easiware = createPiece({
     findTicketsByBody,
 
     createCustomApiCallAction({
-      baseUrl: (auth) => (auth as easiwareAuthType).appUrl,
+      baseUrl: (auth) => (auth as unknown as easiwareAuthType).appUrl,
       auth: easiwareAuth,
       authMapping: async (auth) => ({
-        Authorization: `Bearer ${(auth as easiwareAuthType).apiKey}`,
+        Authorization: `Bearer ${(auth as unknown as easiwareAuthType).apiKey}`,
       }),
     }),
   ],

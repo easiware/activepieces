@@ -1,6 +1,6 @@
 import { createAction, Property } from '@activepieces/pieces-framework';
 import { httpClient, HttpMethod } from '@activepieces/pieces-common';
-import { easiwareAuth } from '../..';
+import { easiwareAuth, easiwareAuthType } from '../..';
 
 export const getTicketFromID = createAction({
   auth: easiwareAuth,
@@ -15,9 +15,9 @@ export const getTicketFromID = createAction({
     }),
   },
   async run(context) {
-    const token = context.auth.apiKey;
+    const token = (context.auth as unknown as easiwareAuthType).apiKey;
     const id = context.propsValue.ticketId;
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
     const url = `${baseUrl}/v1/tickets/${id}`;
 
     const response = await httpClient.sendRequest({
@@ -148,9 +148,9 @@ export const searchTickets = createAction({
   },
 
   async run(context) {
-    const token = context.auth.apiKey;
+    const token = (context.auth as unknown as easiwareAuthType).apiKey;
     const props = context.propsValue;
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
 
     // Création d'un tableau pour les paramètres de requête
     const queryParams: Array<{ key: string; value: string }> = [];
@@ -327,8 +327,8 @@ export const createTicket = createAction({
   },
 
   async run(context) {
-    const token = context.auth.apiKey;
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const token = (context.auth as unknown as easiwareAuthType).apiKey;
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
 
     const body: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(context.propsValue)) {
@@ -413,8 +413,8 @@ export const updateTicket = createAction({
   },
 
   async run(context) {
-    const token = context.auth.apiKey;
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const token = (context.auth as unknown as easiwareAuthType).apiKey;
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
 
     // Traitement spécial pour customFieldsValues
     const { ticketId, customFieldsValues, ...otherProps } = context.propsValue;
@@ -459,10 +459,10 @@ export const getTicketMessages = createAction({
   },
 
   async run(context) {
-    const token = context.auth.apiKey;
+    const token = (context.auth as unknown as easiwareAuthType).apiKey;
     const id = context.propsValue.ticketId;
 
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
     const url = `${baseUrl}/v1/tickets/${id}/messages`;
 
     const response = await httpClient.sendRequest({
@@ -538,9 +538,9 @@ export const addMessageToTicket = createAction({
   },
 
   async run(context) {
-    const token   = context.auth.apiKey;
+    const token   = (context.auth as unknown as easiwareAuthType).apiKey;
     const id      = context.propsValue.ticketId;
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
 
     const body: Record<string, unknown> = {
       source : context.propsValue.source,
@@ -626,8 +626,8 @@ export const searchTicketEvents = createAction({
   },
 
   async run(context) {
-    const token      = context.auth.apiKey;
-    const baseUrl    = context.auth.appUrl.replace(/\/$/, '');
+    const token      = (context.auth as unknown as easiwareAuthType).apiKey;
+    const baseUrl    = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
     const p          = context.propsValue;
 
     const qs = new URLSearchParams();
@@ -679,11 +679,11 @@ export const getTicketEventFromID = createAction({
   },
 
   async run(ctx) {
-    const token = ctx.auth.apiKey;
+    const token = (ctx.auth as unknown as easiwareAuthType).apiKey;
     const { eventId, returnRawResponse = false } = ctx.propsValue;
 
     // Remove trailing slash from the base URL to avoid "//"
-    const baseUrl = ctx.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (ctx.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
     const url = `${baseUrl}/v1/ticket-events/${eventId}`;
 
     const response = await httpClient.sendRequest({
@@ -720,7 +720,7 @@ export const listTicketCustomFields = createAction({
   },
 
   async run(ctx) {
-    const { apiKey, appUrl } = ctx.auth;
+    const { apiKey, appUrl } = ctx.auth as unknown as easiwareAuthType;
     const { search } = ctx.propsValue;
 
     const baseUrl = appUrl.replace(/\/$/, '');
@@ -758,9 +758,9 @@ export const getTicketCustomFieldChoices = createAction({
   },
 
   async run(ctx) {
-    const token = ctx.auth.apiKey;
+    const token = (ctx.auth as unknown as easiwareAuthType).apiKey;
     const { customId } = ctx.propsValue;
-    const baseUrl = ctx.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (ctx.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,
@@ -884,8 +884,8 @@ export const findTicketsByBody = createAction({
   },
 
   async run(ctx) {
-    const token = ctx.auth.apiKey;
-    const baseUrl = ctx.auth.appUrl.replace(/\/$/, '');
+    const token = (ctx.auth as unknown as easiwareAuthType).apiKey;
+    const baseUrl = (ctx.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
     const p = ctx.propsValue;
 
     /* ---- Build request body according to provided filters ---- */

@@ -1,6 +1,6 @@
 import { createAction, Property } from '@activepieces/pieces-framework';
 import { httpClient, HttpMethod, QueryParams } from '@activepieces/pieces-common';
-import { easiwareAuth } from '../..';
+import { easiwareAuth, easiwareAuthType } from '../..';
 
 /************************************
  * HELPER UTIL
@@ -29,7 +29,7 @@ export const getApiStatus = createAction({
   description: 'Retrieve the public API status',
   props: {},
   async run(ctx) {
-    const { apiKey, appUrl } = ctx.auth;
+    const { apiKey, appUrl } = ctx.auth as unknown as easiwareAuthType;
     const res = await httpClient.sendRequest({
       method: HttpMethod.GET,
       url: `${base(appUrl)}/v1/status`,
@@ -46,7 +46,7 @@ export const getAuthInfo = createAction({
   description: 'Retrieve details about the current API key',
   props: {},
   async run(ctx) {
-    const { apiKey, appUrl } = ctx.auth;
+    const { apiKey, appUrl } = ctx.auth as unknown as easiwareAuthType;
     const res = await httpClient.sendRequest({
       method: HttpMethod.GET,
       url: `${base(appUrl)}/v1/auth/info`,
@@ -70,7 +70,7 @@ export const searchCategories = createAction({
     public: Property.Checkbox({ displayName: 'Public only', required: false }),
   },
   async run(ctx) {
-    const { apiKey, appUrl } = ctx.auth;
+    const { apiKey, appUrl } = ctx.auth as unknown as easiwareAuthType;
     const queryParams = sanitize(ctx.propsValue);
     const res = await httpClient.sendRequest({
       method: HttpMethod.GET,
@@ -91,7 +91,7 @@ export const getCategoryFromID = createAction({
     id: Property.ShortText({ displayName: 'Category ID', required: true }),
   },
   async run(ctx) {
-    const { apiKey, appUrl } = ctx.auth;
+    const { apiKey, appUrl } = ctx.auth as unknown as easiwareAuthType;
     const res = await httpClient.sendRequest({
       method: HttpMethod.GET,
       url: `${base(appUrl)}/v1/categories/${ctx.propsValue.id}`,
@@ -127,7 +127,7 @@ export const searchUsers = createAction({
     }),
   },
   async run(ctx) {
-    const { apiKey, appUrl } = ctx.auth;
+    const { apiKey, appUrl } = ctx.auth as unknown as easiwareAuthType;
     const queryParams = sanitize(ctx.propsValue);
     const res = await httpClient.sendRequest({
       method: HttpMethod.GET,
@@ -148,7 +148,7 @@ export const getUserFromID = createAction({
     id: Property.ShortText({ displayName: 'User ID', required: true }),
   },
   async run(ctx) {
-    const { apiKey, appUrl } = ctx.auth;
+    const { apiKey, appUrl } = ctx.auth as unknown as easiwareAuthType;
     const res = await httpClient.sendRequest({
       method: HttpMethod.GET,
       url: `${base(appUrl)}/v1/users/${ctx.propsValue.id}`,

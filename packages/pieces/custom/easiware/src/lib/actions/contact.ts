@@ -1,6 +1,6 @@
 import { createAction, Property } from '@activepieces/pieces-framework';
 import { HttpRequest, httpClient, HttpMethod } from '@activepieces/pieces-common';
-import { easiwareAuth } from '../..';
+import { easiwareAuth, easiwareAuthType } from '../..';
 
 export const getContactFromID = createAction({
   auth: easiwareAuth,
@@ -17,7 +17,7 @@ export const getContactFromID = createAction({
   },
 
   async run(context) {
-    const EAapiToken = context.auth.apiKey;
+    const EAapiToken = (context.auth as unknown as easiwareAuthType).apiKey;
     const EAcontactID = context.propsValue.contactid;
 
     const headers = {
@@ -26,7 +26,7 @@ export const getContactFromID = createAction({
     };
 
     // Remove trailing slash from api_url
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
     // not needed for gettickets ?${queryParams.toString()}
     const url = `${baseUrl}/v1/contacts/${EAcontactID}`;
     const httprequestdata = {
@@ -137,7 +137,7 @@ export const searchContact = createAction({
   },
 
   async run(context) {
-    const { apiKey: EAapiToken, appUrl } = context.auth;
+    const { apiKey: EAapiToken, appUrl } = context.auth as unknown as easiwareAuthType;
 
     const headers = {
       Authorization: `Bearer ${EAapiToken}`,
@@ -153,7 +153,7 @@ export const searchContact = createAction({
     );
 
     // Remove trailing slash from api_url
-    const baseUrl = context.auth.appUrl.replace(/\/$/, '');
+    const baseUrl = (context.auth as unknown as easiwareAuthType).appUrl.replace(/\/$/, '');
     // not needed for gettickets ?${queryParams.toString()}
     const url = `${baseUrl.replace(/\/$/, '')}/v1/contacts`
     const httprequestdata = {
@@ -255,7 +255,7 @@ export const createContact = createAction({
   },
 
   async run(context) {
-    const { apiKey: EAapiToken, appUrl } = context.auth;
+    const { apiKey: EAapiToken, appUrl } = context.auth as unknown as easiwareAuthType;
 
     // Traitement spécial pour customFieldsValues
     const { customFieldsValues, ...otherProps } = context.propsValue;
@@ -380,7 +380,7 @@ export const updateContact = createAction({
   },
 
   async run(context) {
-    const { apiKey: EAapiToken, appUrl } = context.auth;
+    const { apiKey: EAapiToken, appUrl } = context.auth as unknown as easiwareAuthType;
 
     const { id, ...rawProps } = context.propsValue;
 
@@ -424,7 +424,7 @@ export const listContactCustomFields = createAction({
   },
 
   async run(context) {
-    const { apiKey: token, appUrl } = context.auth;
+    const { apiKey: token, appUrl } = context.auth as unknown as easiwareAuthType;
     const { search } = context.propsValue;
 
     const url = `${appUrl.replace(/\/$/, '')}/v1/contact-custom-fields`;
@@ -464,7 +464,7 @@ export const getContactCustomFieldChoices = createAction({
   },
 
   async run(context) {
-    const { apiKey: token, appUrl } = context.auth;
+    const { apiKey: token, appUrl } = context.auth as unknown as easiwareAuthType;
     const { customId } = context.propsValue;
 
     const url = `${appUrl.replace(/\/$/, '')}/v1/contact-custom-fields/${customId}/choices`;
