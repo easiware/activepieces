@@ -1,6 +1,7 @@
 import { createAction, Property } from '@activepieces/pieces-framework';
 import { httpClient, HttpMethod } from '@activepieces/pieces-common';
 import { easiwareAuth, easiwareAuthType } from '../..';
+import { pageProp, limitProp } from './common';
 
 export const getTicketFromID = createAction({
   auth: easiwareAuth,
@@ -36,29 +37,62 @@ export const searchTickets = createAction({
   displayName: 'Search Tickets',
   description: 'Search your organization’s tickets with all available filters.',
   props: {
+    page: pageProp,
+    limit: limitProp,
+
     search: Property.ShortText({
       displayName: 'Free text',
       description: 'Full-text search on subject, messages and contact fields.',
       required: false,
     }),
+    deleted: Property.Checkbox({
+      displayName: 'Include deleted tickets',
+      description: 'When enabled, soft-deleted tickets are returned as well.',
+      required: false,
+      defaultValue: false,
+    }),
+    unassigned: Property.Checkbox({
+      displayName: 'Only unassigned',
+      description: 'Return tickets that have no agent assigned.',
+      required: false,
+      defaultValue: false,
+    }),
+
     contactId: Property.ShortText({
       displayName: 'Contact IDs',
-      description: 'Comma-separated list of contact IDs.',
+      description: 'Comma-separated list of contact UUIDs.',
       required: false,
     }),
     agentId: Property.ShortText({
       displayName: 'Agent IDs',
-      description: 'Comma-separated list of agent IDs.',
+      description: 'Comma-separated list of agent UUIDs.',
       required: false,
     }),
     categoryId: Property.ShortText({
       displayName: 'Category IDs',
-      description: 'Comma-separated list of category IDs.',
+      description: 'Comma-separated list of category UUIDs.',
       required: false,
     }),
-    originalRecipientEmailAddress: Property.ShortText({
-      displayName: 'Original recipient emails',
-      description: 'Filter email tickets by the original “To:” address.',
+    competenceGroupId: Property.ShortText({
+      displayName: 'Competence Group IDs',
+      description: 'Comma-separated list of competence group UUIDs.',
+      required: false,
+    }),
+    competenceAgentCombo: Property.StaticDropdown({
+      displayName: 'Competence / Agent combo',
+      description:
+        'Logical operator applied between competenceGroupId and agentId filters (default “and”).',
+      required: false,
+      options: {
+        options: [
+          { label: 'AND', value: 'and' },
+          { label: 'OR', value: 'or' },
+        ],
+      },
+    }),
+    ticketId: Property.ShortText({
+      displayName: 'Ticket IDs',
+      description: 'Comma-separated list of ticket UUIDs.',
       required: false,
     }),
 
@@ -93,35 +127,42 @@ export const searchTickets = createAction({
       required: false,
       options: {
         options: [
-      { label: 'Chat', value: 'chat' },
+          { label: 'Chat', value: 'chat' },
           { label: 'Email', value: 'email' },
           { label: 'Phone', value: 'phone' },
           { label: 'Webform', value: 'webform' },
+          { label: 'WhatsApp', value: 'whatsapp' },
+          { label: 'Suggestion', value: 'suggestion' },
+        ],
+      },
+    }),
+    customSources: Property.ShortText({
+      displayName: 'Custom Sources',
+      description:
+        'Comma-separated custom channel identifiers to also filter by (merged with the selected Sources).',
+      required: false,
+    }),
+    languageCodes: Property.StaticMultiSelectDropdown({
+      displayName: 'Language codes',
+      description: 'Filter tickets by language code.',
+      required: false,
+      options: {
+        options: [
+          { label: 'German', value: 'de' },
+          { label: 'English', value: 'en' },
+          { label: 'French', value: 'fr' },
+          { label: 'Dutch', value: 'nl' },
+          { label: 'Italian', value: 'it' },
+          { label: 'Portuguese', value: 'pt' },
+          { label: 'Spanish', value: 'es' },
         ],
       },
     }),
 
-    deleted: Property.StaticDropdown({
-      displayName: 'Include deleted tickets',
-      description: 'true = include soft-deleted tickets.',
+    originalRecipientEmailAddress: Property.LongText({
+      displayName: 'Original recipient emails',
+      description: 'Comma-separated list of original “To:” addresses.',
       required: false,
-      options: {
-        options: [
-          { label: 'False (default)', value: 'false' },
-          { label: 'True', value: 'true' },
-        ],
-      },
-    }),
-    unassigned: Property.StaticDropdown({
-      displayName: 'Only unassigned',
-      description: 'true = tickets with no agent assigned.',
-      required: false,
-      options: {
-        options: [
-          { label: 'False (default)', value: 'false' },
-          { label: 'True', value: 'true' },
-        ],
-      },
     }),
 
     createdAfter: Property.ShortText({
@@ -145,6 +186,41 @@ export const searchTickets = createAction({
       required: false,
     }),
 
+    order: Property.Json({
+      displayName: 'Order (JSON)',
+      description:
+        'Sorting object, e.g. {"field":"createdAt","order":"desc"}.',
+      required: false,
+    }),
+
+    contactCountryCodes: Property.ShortText({
+      displayName: 'Contact country codes',
+      description: 'Comma-separated list of contact country codes (ISO 3166 alpha-2).',
+      required: false,
+    }),
+    contactLanguageCodes: Property.ShortText({
+      displayName: 'Contact language codes',
+      description: 'Comma-separated list of contact language codes (ISO 3166 alpha-2).',
+      required: false,
+    }),
+    contactCustomFieldsValues: Property.Json({
+      displayName: 'Contact custom fields values (JSON)',
+      description: 'JSON object to filter on contact custom field values.',
+      required: false,
+    }),
+    csat: Property.Array({
+      displayName: 'CSAT scores',
+      description: 'Filter by CSAT rating values (numbers).',
+      required: false,
+      properties: {
+        score: Property.Number({ displayName: 'Score', required: true }),
+      },
+    }),
+    customFieldsValues: Property.Json({
+      displayName: 'Custom fields values (JSON)',
+      description: 'JSON object to filter on ticket custom field values.',
+      required: false,
+    }),
   },
 
   async run(context) {
@@ -170,6 +246,10 @@ export const searchTickets = createAction({
       }
     };
 
+    // Pagination (required)
+    addParam('page', String(props.page ?? 1));
+    addParam('limit', String(props.limit ?? 20));
+
     // Gestion des paramètres textuels
     if (props.search) addParam('search', props.search);
 
@@ -178,7 +258,11 @@ export const searchTickets = createAction({
       { key: 'contactId', value: props.contactId },
       { key: 'agentId', value: props.agentId },
       { key: 'categoryId', value: props.categoryId },
-      { key: 'originalRecipientEmailAddress', value: props.originalRecipientEmailAddress }
+      { key: 'competenceGroupId', value: props.competenceGroupId },
+      { key: 'ticketId', value: props.ticketId },
+      { key: 'originalRecipientEmailAddress', value: props.originalRecipientEmailAddress },
+      { key: 'contactCountryCodes', value: props.contactCountryCodes },
+      { key: 'contactLanguageCodes', value: props.contactLanguageCodes },
     ];
 
     csvFields.forEach(({ key, value }) => {
@@ -186,10 +270,17 @@ export const searchTickets = createAction({
     });
 
     // Gestion des multi-selects
+    // Merge customSources (comma-separated) into the source filter values
+    const customSourceValues = parseCsv(props.customSources);
+    const mergedSource = [
+      ...(Array.isArray(props.source) ? props.source : []),
+      ...customSourceValues,
+    ];
     const multiSelects = [
       { key: 'status', value: props.status },
       { key: 'priority', value: props.priority },
-      { key: 'source', value: props.source }
+      { key: 'source', value: mergedSource },
+      { key: 'languageCodes', value: props.languageCodes },
     ];
 
     multiSelects.forEach(({ key, value }) => {
@@ -197,8 +288,11 @@ export const searchTickets = createAction({
     });
 
     // Gestion des booléens
-    if (props.deleted) addParam('deleted', props.deleted);
-    if (props.unassigned) addParam('unassigned', props.unassigned);
+    if (props.deleted) addParam('deleted', 'true');
+    if (props.unassigned) addParam('unassigned', 'true');
+
+    // competenceAgentCombo
+    if (props.competenceAgentCombo) addParam('competenceAgentCombo', props.competenceAgentCombo);
 
     // Gestion des dates
     const dateFields = [
@@ -212,6 +306,19 @@ export const searchTickets = createAction({
       if (value) addParam(key, value);
     });
 
+    // order (JSON object → stringified)
+    if (props.order) addParam('order', JSON.stringify(props.order));
+
+    // contactCustomFieldsValues / customFieldsValues (JSON object → stringified)
+    if (props.contactCustomFieldsValues)
+      addParam('contactCustomFieldsValues', JSON.stringify(props.contactCustomFieldsValues));
+    if (props.customFieldsValues)
+      addParam('customFieldsValues', JSON.stringify(props.customFieldsValues));
+
+    // csat (array of numbers)
+    if (Array.isArray(props.csat) && props.csat.length > 0) {
+      addParam('csat', props.csat.map((n) => String(n as number)));
+    }
 
     // Conversion en format attendu par Activepieces
     const formattedQueryParams: Record<string, string> = {};
@@ -257,8 +364,18 @@ export const createTicket = createAction({
           { label: 'Email', value: 'email' },
           { label: 'Phone', value: 'phone' },
           { label: 'Webform', value: 'webform' },
+          { label: 'WhatsApp', value: 'whatsapp' },
+          { label: 'Suggestion', value: 'suggestion' },
         ],
       },
+    }),
+
+    customSource: Property.ShortText({
+      displayName: 'Custom Channel Source',
+      description:
+        'Custom channel identifier (e.g. twitter_dm) to use instead of the built-in Source dropdown. ' +
+        'The channel must already exist in easiware. When filled, it takes precedence over Source.',
+      required: false,
     }),
 
     subject: Property.ShortText({
@@ -312,6 +429,12 @@ export const createTicket = createAction({
       required: false,
     }),
 
+    competenceGroupId: Property.ShortText({
+      displayName: 'Competence Group ID',
+      description: 'Identifier of the competence group assigned to the ticket.',
+      required: false,
+    }),
+
     originalRecipientEmailAddress: Property.ShortText({
       displayName: 'Original recipient (email)',
       description: 'Original “To” address when the source is Email.',
@@ -332,10 +455,17 @@ export const createTicket = createAction({
 
     const body: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(context.propsValue)) {
-	    if (v !== undefined && v !== null && v !== '') {
-		    body[k] = v;
-	    }
+     if (v !== undefined && v !== null && v !== '') {
+      body[k] = v;
+     }
     }
+    // customSource takes precedence over the built-in Source dropdown
+    const { customSource } = context.propsValue;
+    if (customSource && customSource.trim() !== '') {
+      body['source'] = customSource.trim();
+    }
+    // customSource is not a real API field — remove it from the body
+    delete body['customSource'];
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
@@ -399,9 +529,19 @@ export const updateTicket = createAction({
       description: 'Identifier of the contact linked to the ticket.',
       required: false,
     }),
+    agentId: Property.ShortText({
+      displayName: 'Agent ID',
+      description: 'Identifier of the agent assigned to the ticket. Set to null to unassign.',
+      required: false,
+    }),
     categoryId: Property.ShortText({
       displayName: 'Category ID',
       description: 'Identifier of the category (folder) in which the ticket is filed.',
+      required: false,
+    }),
+    competenceGroupId: Property.ShortText({
+      displayName: 'Competence Group ID',
+      description: 'Identifier of the competence group assigned to the ticket.',
       required: false,
     }),
     customFieldsValues: Property.Json({
@@ -456,6 +596,8 @@ export const getTicketMessages = createAction({
         "The easiware internal identifier of the ticket whose message history you wish to fetch.",
       required: true,
     }),
+    page: pageProp,
+    limit: limitProp,
   },
 
   async run(context) {
@@ -471,6 +613,10 @@ export const getTicketMessages = createAction({
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
+      },
+      queryParams: {
+        page: String(context.propsValue.page ?? 1),
+        limit: String(context.propsValue.limit ?? 20),
       },
     });
 
@@ -498,10 +644,12 @@ export const addMessageToTicket = createAction({
       required: true,
       options: {
         options: [
-          { label: 'Chat',   value: 'chat'   },
-          { label: 'Email',  value: 'email'  },
-          { label: 'Phone',  value: 'phone'  },
-          { label: 'Webform',value: 'webform'},
+          { label: 'Chat',     value: 'chat'     },
+          { label: 'Email',    value: 'email'    },
+          { label: 'Phone',    value: 'phone'    },
+          { label: 'Webform',  value: 'webform'  },
+          { label: 'WhatsApp', value: 'whatsapp' },
+          { label: 'Suggestion', value: 'suggestion' },
         ],
       },
     }),
@@ -526,8 +674,27 @@ export const addMessageToTicket = createAction({
 
     agentId: Property.ShortText({
       displayName: 'Agent ID',
-      description: 'Identifier of the agent author. Leave empty to mark the message as coming from the ticket’s contact.:contentReference[oaicite:1]{index=1}',
+      description: 'Identifier of the agent author. Leave empty to mark the message as coming from the ticket’s contact.',
       required: false,
+    }),
+
+    botId: Property.ShortText({
+      displayName: 'Bot ID',
+      description: 'Identifier of the bot author (optional).',
+      required: false,
+    }),
+
+    contactId: Property.ShortText({
+      displayName: 'Contact ID',
+      description: 'Identifier of the contact author (optional).',
+      required: false,
+    }),
+
+    sendMessage: Property.Checkbox({
+      displayName: 'Send message',
+      description: 'When enabled, the message is actually sent to the contact (not just logged).',
+      required: false,
+      defaultValue: false,
     }),
 
     originalRecipientEmailAddress: Property.ShortText({
@@ -551,11 +718,18 @@ export const addMessageToTicket = createAction({
       'subject',
       'contentHtml',
       'agentId',
+      'botId',
+      'contactId',
       'originalRecipientEmailAddress',
     ].forEach((k) => {
       const v = (context.propsValue as any)[k];
       if (v !== undefined && v !== null && v !== '') body[k] = v;
     });
+
+    // sendMessage is a boolean — include only when explicitly set
+    if (context.propsValue.sendMessage !== undefined && context.propsValue.sendMessage !== null) {
+      body['sendMessage'] = context.propsValue.sendMessage;
+    }
 
     const response = await httpClient.sendRequest({
       method : HttpMethod.POST,
@@ -580,6 +754,9 @@ export const searchTicketEvents = createAction({
     'Retrieve ticket-history events (creation, notes, status changes, messages, etc.) ',
 
   props: {
+    page: pageProp,
+    limit: limitProp,
+
     createdAfter: Property.ShortText({
       displayName: 'Created After (ISO-8601)',
       description:
@@ -594,28 +771,45 @@ export const searchTicketEvents = createAction({
         'e.g. `2025-05-31T23:59:59Z`.',
       required: false,
     }),
-    type: Property.StaticMultiSelectDropdown({
-      displayName: 'Event Type(s)',
+    type: Property.StaticDropdown({
+      displayName: 'Event Type',
       description:
-        'Filter on one or several event categories. If left empty, all types are returned.',
+        'Filter on a single event category. If left empty, all types are returned.',
       required: false,
       options: {
         options: [
-          { label: 'create',          value: 'create' },
-          { label: 'note',            value: 'note' },
-          { label: 'subject',         value: 'subject' },
-          { label: 'status',          value: 'status' },
-          { label: 'category',        value: 'category' },
-          { label: 'priority',        value: 'priority' },
-          { label: 'agent',           value: 'agent' },
-          { label: 'currentChannel',  value: 'currentChannel' },
-          { label: 'contact',         value: 'contact' },
-          { label: 'message',         value: 'message' },
-          { label: 'solicitation',    value: 'solicitation' },
-          { label: 'delete',          value: 'delete' },
-          { label: 'restore',         value: 'restore' },
+          { label: 'create',               value: 'create' },
+          { label: 'note',                 value: 'note' },
+          { label: 'subject',              value: 'subject' },
+          { label: 'status',               value: 'status' },
+          { label: 'category',             value: 'category' },
+          { label: 'priority',             value: 'priority' },
+          { label: 'agent',                value: 'agent' },
+          { label: 'currentChannel',       value: 'currentChannel' },
+          { label: 'contact',              value: 'contact' },
+          { label: 'message',              value: 'message' },
+          { label: 'solicitation',         value: 'solicitation' },
+          { label: 'delete',               value: 'delete' },
+          { label: 'restore',              value: 'restore' },
+          { label: 'competence_group',     value: 'competence_group' },
+          { label: 'ai_request_summary',   value: 'ai_request_summary' },
+          { label: 'ai_summary',           value: 'ai_summary' },
+          { label: 'ai_request_terminated',value: 'ai_request_terminated' },
+          { label: 'ai_auto_categorized',  value: 'ai_auto_categorized' },
+          { label: 'ticket_link',          value: 'ticket_link' },
+          { label: 'ticket_unlink',        value: 'ticket_unlink' },
+          { label: 'ticket_suggestion',    value: 'ticket_suggestion' },
+          { label: 'average_handling_time',value: 'average_handling_time' },
+          { label: 'csat_rating',          value: 'csat_rating' },
+          { label: 'csat_comment',         value: 'csat_comment' },
+          { label: 'csat_email_sent',      value: 'csat_email_sent' },
         ],
       },
+    }),
+    botId: Property.ShortText({
+      displayName: 'Bot ID',
+      description: 'Filter events emitted by the given bot (UUID).',
+      required: false,
     }),
     ticketId: Property.ShortText({
       displayName: 'Ticket ID',
@@ -631,12 +825,15 @@ export const searchTicketEvents = createAction({
     const p          = context.propsValue;
 
     const qs = new URLSearchParams();
+    qs.append('page',  String(p.page ?? 1));
+    qs.append('limit', String(p.limit ?? 20));
     if (p.createdAfter)  qs.append('createdAfter',  p.createdAfter);
     if (p.createdBefore) qs.append('createdBefore', p.createdBefore);
-    if (p.type?.length)  p.type.forEach(t => qs.append('type', t));
+    if (p.type)          qs.append('type',          p.type);
+    if (p.botId)         qs.append('botId',         p.botId);
     if (p.ticketId)      qs.append('ticketId',      p.ticketId);
 
-    const url = `${baseUrl}/v1/ticket-events${qs.size ? `?${qs}` : ''}`;
+    const url = `${baseUrl}/v1/ticket-events?${qs}`;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.GET,
@@ -783,6 +980,9 @@ export const findTicketsByBody = createAction({
     'Search your organisation’s tickets using all available filters. The request is sent in the body, mirroring the parameters of GET /tickets.',
 
   props: {
+    page: pageProp,
+    limit: limitProp,
+
     search: Property.ShortText({
       displayName: 'Free-text search',
       description:
@@ -815,6 +1015,28 @@ export const findTicketsByBody = createAction({
     categoryIds: Property.ShortText({
       displayName: 'Category IDs',
       description: 'Comma-separated list of category identifiers.',
+      required: false,
+    }),
+    competenceGroupIds: Property.ShortText({
+      displayName: 'Competence Group IDs',
+      description: 'Comma-separated list of competence group identifiers.',
+      required: false,
+    }),
+    competenceAgentCombo: Property.StaticDropdown({
+      displayName: 'Competence / Agent combo',
+      description:
+        'Logical operator applied between competenceGroupId and agentId filters (default “and”).',
+      required: false,
+      options: {
+        options: [
+          { label: 'AND', value: 'and' },
+          { label: 'OR', value: 'or' },
+        ],
+      },
+    }),
+    ticketIds: Property.ShortText({
+      displayName: 'Ticket IDs',
+      description: 'Comma-separated list of ticket identifiers.',
       required: false,
     }),
     originalRecipientEmailAddresses: Property.LongText({
@@ -856,13 +1078,37 @@ export const findTicketsByBody = createAction({
           { label: 'Email', value: 'email' },
           { label: 'Phone', value: 'phone' },
           { label: 'Webform', value: 'webform' },
+          { label: 'WhatsApp', value: 'whatsapp' },
+          { label: 'Suggestion', value: 'suggestion' },
+        ],
+      },
+    }),
+    customSources: Property.ShortText({
+      displayName: 'Custom Sources',
+      description:
+        'Comma-separated custom channel identifiers to also filter by (merged with the selected Sources).',
+      required: false,
+    }),
+    languageCodes: Property.StaticMultiSelectDropdown({
+      displayName: 'Language codes',
+      description: 'Filter tickets by language code.',
+      required: false,
+      options: {
+        options: [
+          { label: 'German', value: 'de' },
+          { label: 'English', value: 'en' },
+          { label: 'French', value: 'fr' },
+          { label: 'Dutch', value: 'nl' },
+          { label: 'Italian', value: 'it' },
+          { label: 'Portuguese', value: 'pt' },
+          { label: 'Spanish', value: 'es' },
         ],
       },
     }),
 
     createdAfter: Property.ShortText({
       displayName: 'Created after',
-      description: 'ISO-8601 date-t:splitime (e.g. 2025-01-01T00:00:00Z).',
+      description: 'ISO-8601 date-time (e.g. 2025-01-01T00:00:00Z).',
       required: false,
     }),
     createdBefore: Property.ShortText({
@@ -881,6 +1127,41 @@ export const findTicketsByBody = createAction({
       required: false,
     }),
 
+    order: Property.Json({
+      displayName: 'Order (JSON)',
+      description:
+        'Sorting object, e.g. {"field":"createdAt","order":"desc"}.',
+      required: false,
+    }),
+
+    contactCountryCodes: Property.ShortText({
+      displayName: 'Contact country codes',
+      description: 'Comma-separated list of contact country codes (ISO 3166 alpha-2).',
+      required: false,
+    }),
+    contactLanguageCodes: Property.ShortText({
+      displayName: 'Contact language codes',
+      description: 'Comma-separated list of contact language codes (ISO 3166 alpha-2).',
+      required: false,
+    }),
+    contactCustomFieldsValues: Property.Json({
+      displayName: 'Contact custom fields values (JSON)',
+      description: 'JSON object to filter on contact custom field values.',
+      required: false,
+    }),
+    csat: Property.Array({
+      displayName: 'CSAT scores',
+      description: 'Filter by CSAT rating values (numbers).',
+      required: false,
+      properties: {
+        score: Property.Number({ displayName: 'Score', required: true }),
+      },
+    }),
+    customFieldsValues: Property.Json({
+      displayName: 'Custom fields values (JSON)',
+      description: 'JSON object to filter on ticket custom field values.',
+      required: false,
+    }),
   },
 
   async run(ctx) {
@@ -897,15 +1178,28 @@ export const findTicketsByBody = createAction({
     if (p.unassigned) body['unassigned'] = true;
     if (p.status?.length) body['status'] = p.status;
     if (p.priority?.length) body['priority'] = p.priority;
-    if (p.source?.length) body['source'] = p.source;
+    if (p.languageCodes?.length) body['languageCodes'] = p.languageCodes;
     if (p.createdAfter) body['createdAfter'] = p.createdAfter;
     if (p.createdBefore) body['createdBefore'] = p.createdBefore;
     if (p.updatedAfter) body['updatedAfter'] = p.updatedAfter;
     if (p.updatedBefore) body['updatedBefore'] = p.updatedBefore;
+    if (p.competenceAgentCombo) body['competenceAgentCombo'] = p.competenceAgentCombo;
+    if (p.order) body['order'] = p.order;
+    if (p.contactCustomFieldsValues) body['contactCustomFieldsValues'] = p.contactCustomFieldsValues;
+    if (p.customFieldsValues) body['customFieldsValues'] = p.customFieldsValues;
+    if (Array.isArray(p.csat) && p.csat.length > 0) body['csat'] = p.csat;
 
     /* Comma-separated → array helpers */
     const csvToArray = (txt?: string) =>
       txt ? txt.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+
+    // Merge customSources (comma-separated) into the source filter array
+    const findCustomSources = csvToArray(p.customSources) ?? [];
+    const mergedFindSource = [
+      ...(Array.isArray(p.source) ? p.source : []),
+      ...findCustomSources,
+    ];
+    if (mergedFindSource.length) body['source'] = mergedFindSource;
 
     const contactArr = csvToArray(p.contactIds);
     if (contactArr?.length) body['contactId'] = contactArr;
@@ -916,8 +1210,26 @@ export const findTicketsByBody = createAction({
     const categoryArr = csvToArray(p.categoryIds);
     if (categoryArr?.length) body['categoryId'] = categoryArr;
 
+    const competenceGroupArr = csvToArray(p.competenceGroupIds);
+    if (competenceGroupArr?.length) body['competenceGroupId'] = competenceGroupArr;
+
+    const ticketArr = csvToArray(p.ticketIds);
+    if (ticketArr?.length) body['ticketId'] = ticketArr;
+
     const recipientArr = csvToArray(p.originalRecipientEmailAddresses);
     if (recipientArr?.length) body['originalRecipientEmailAddress'] = recipientArr;
+
+    const contactCountryArr = csvToArray(p.contactCountryCodes);
+    if (contactCountryArr?.length) body['contactCountryCodes'] = contactCountryArr;
+
+    const contactLanguageArr = csvToArray(p.contactLanguageCodes);
+    if (contactLanguageArr?.length) body['contactLanguageCodes'] = contactLanguageArr;
+
+    /* page / limit are sent as QUERY params (not in the body) */
+    const queryParams = {
+      page: String(p.page ?? 1),
+      limit: String(p.limit ?? 20),
+    };
 
     const resp = await httpClient.sendRequest({
       method: HttpMethod.POST,
@@ -926,10 +1238,11 @@ export const findTicketsByBody = createAction({
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      queryParams,
       body,
     });
 
-    return resp.status === 201 ? resp.body : resp;
+    return resp.status === 200 ? resp.body : resp;
   },
 });
 

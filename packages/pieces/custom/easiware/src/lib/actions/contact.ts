@@ -1,6 +1,7 @@
 import { createAction, Property } from '@activepieces/pieces-framework';
 import { HttpRequest, httpClient, HttpMethod } from '@activepieces/pieces-common';
 import { easiwareAuth, easiwareAuthType } from '../..';
+import { pageProp, limitProp } from './common';
 
 export const getContactFromID = createAction({
   auth: easiwareAuth,
@@ -52,6 +53,14 @@ export const searchContact = createAction({
   description: 'Search contacts and get details.',
 
   props: {
+    page: pageProp,
+    limit: limitProp,
+    deleted: Property.Checkbox({
+      displayName: 'Include deleted contacts',
+      description: 'When enabled, soft-deleted contacts are returned as well.',
+      required: false,
+      defaultValue: false,
+    }),
     cityName: Property.ShortText({
       displayName: 'City Name',
       description: 'The name of city',
@@ -247,26 +256,17 @@ export const createContact = createAction({
       displayName: 'Notes',
       required: false,
     }),
-    customFieldsValues: Property.Json({
-      displayName: 'Custom fields values (JSON)',
-      description: 'Match your custom fields schema',
-      required: false,
-    }),
   },
 
   async run(context) {
     const { apiKey: EAapiToken, appUrl } = context.auth as unknown as easiwareAuthType;
 
-    // Traitement spécial pour customFieldsValues
-    const { customFieldsValues, ...otherProps } = context.propsValue;
-
     const body: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(otherProps)) {
-	    if (v !== undefined && v !== null && v !== '') {
-		    body[k] = v;
-	    }
+    for (const [k, v] of Object.entries(context.propsValue)) {
+     if (v !== undefined && v !== null && v !== '') {
+      body[k] = v;
+     }
     }
-    body['customFieldsValues'] = customFieldsValues;
 
     const response = await httpClient.sendRequest({
       method: HttpMethod.POST,
@@ -371,12 +371,6 @@ export const updateContact = createAction({
       description: 'Additional information about the contact',
       required: false,
     }),
-    customFieldsValues: Property.Json({
-      displayName: 'Custom fields values',
-      description:
-        'JSON object containing custom fields (must match fields defined in your solution).',
-      required: false,
-    }),
   },
 
   async run(context) {
@@ -384,16 +378,12 @@ export const updateContact = createAction({
 
     const { id, ...rawProps } = context.propsValue;
 
-    // Traitement spécial pour customFieldsValues
-    const { customFieldsValues, ...otherProps } = rawProps;
-
     const body: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(otherProps)) {
-	    if (v !== undefined && v !== null && v !== '') {
-		    body[k] = v;
-	    }
+    for (const [k, v] of Object.entries(rawProps)) {
+     if (v !== undefined && v !== null && v !== '') {
+      body[k] = v;
+     }
     }
-    body['customFieldsValues'] = customFieldsValues;
     const response = await httpClient.sendRequest({
 	    method: HttpMethod.PATCH,
 	    url: `${appUrl.replace(/\/$/, '')}/v1/contacts/${id}`,
@@ -418,8 +408,9 @@ export const listContactCustomFields = createAction({
   props: {
     search: Property.ShortText({
       displayName: 'Search Text',
-      description: 'Required search string to filter custom fields.',
-      required: false,
+      description: 'Required search string to filter custom fields. Use “*” to list every field.',
+      required: true,
+      defaultValue: '*',
     }),
   },
 
@@ -436,12 +427,8 @@ export const listContactCustomFields = createAction({
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      queryParams: { search: (search ?? '*').trim() || '*' },
     };
-
-    // Ajoute le query param seulement si `search` n’est pas vide / blanc
-    if (typeof search === 'string' && search.trim() !== '') {
-      request.queryParams= { search: search.trim() };
-    }
 
     const response = await httpClient.sendRequest(request);
     return response.status === 200 ? response.body : response;

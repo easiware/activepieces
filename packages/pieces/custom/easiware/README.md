@@ -64,6 +64,7 @@ avec le header `Authorization: Bearer <apiKey>`.
 | Action                       | Description                                              |
 |------------------------------|----------------------------------------------------------|
 | `getTicketFromID`            | Récupère un ticket à partir de son identifiant.          |
+| `searchTickets`              | Recherche des tickets avec tous les filtres disponibles. |
 | `createTicket`               | Crée un nouveau ticket.                                  |
 | `updateTicket`               | Met à jour un ticket existant.                           |
 | `getTicketMessages`          | Liste les messages d'un ticket.                          |
@@ -73,6 +74,92 @@ avec le header `Authorization: Bearer <apiKey>`.
 | `listTicketCustomFields`     | Liste les champs personnalisés des tickets.             |
 | `getTicketCustomFieldChoices`| Récupère les choix d'un champ personnalisé de ticket.   |
 | `findTicketsByBody`          | Recherche des tickets à partir du contenu (body).        |
+
+### Messages de ticket
+
+| Action                   | Description                                                        |
+|--------------------------|--------------------------------------------------------------------|
+| `searchTicketMessages`  | Recherche des messages de ticket avec filtres et pagination.       |
+| `getTicketMessage`      | Récupère un message de ticket à partir de son ID numérique.        |
+
+### Groupes de compétence
+
+| Action                    | Description                                              |
+|---------------------------|----------------------------------------------------------|
+| `searchCompetenceGroups`  | Recherche les groupes de compétence de l'organisation.  |
+| `getCompetenceGroup`      | Récupère un groupe de compétence à partir de son ID.    |
+
+### Webhooks
+
+| Action            | Description                                                       |
+|-------------------|-------------------------------------------------------------------|
+| `listWebhooks`    | Liste tous les webhooks configurés.                               |
+| `getWebhook`      | Récupère un webhook à partir de son ID.                           |
+| `createWebhook`   | Crée un nouveau webhook (catégorie, eventType, URL).             |
+| `updateWebhook`   | Met à jour partiellement un webhook existant.                     |
+| `detachWebhook`   | Détache un webhook (arrête la réception des événements).          |
+| `deleteWebhook`   | Supprime définitivement un webhook.                               |
+
+### Modèles (templates)
+
+| Action          | Description                                              |
+|-----------------|----------------------------------------------------------|
+| `listTemplates` | Liste les modèles disponibles (filtre par langue).       |
+| `getTemplate`   | Récupère un modèle à partir de son ID (filtre par langue).|
+
+### Base de connaissances
+
+| Action                 | Description                                                          |
+|------------------------|---------------------------------------------------------------------|
+| `searchKnowledgeBase`  | Recherche des articles avec filtres et pagination.                  |
+| `createKnowledgeBase` | Crée un nouvel article (statut, catégories, traductions).           |
+| `getKnowledgeBase`     | Récupère un article à partir de son ID.                            |
+| `updateKnowledgeBase`  | Met à jour partiellement un article existant.                       |
+
+### Layouts
+
+| Action       | Description                                              |
+|--------------|----------------------------------------------------------|
+| `listLayouts`| Liste les layouts disponibles (filtre par langue).       |
+| `getLayout`  | Récupère un layout à partir de son ID (filtre par langue).|
+
+### JSON Forms
+
+| Action             | Description                                                       |
+|--------------------|-------------------------------------------------------------------|
+| `createJsonForm`   | Crée un modèle de formulaire JSON.                                |
+| `getJsonForm`      | Récupère un modèle de formulaire JSON à partir de son ID.         |
+| `updateJsonForm`   | Met à jour partiellement un modèle de formulaire JSON.           |
+| `deleteJsonForm`   | Supprime définitivement un modèle de formulaire JSON.             |
+| `listJsonForms`    | Liste les modèles de formulaires JSON (filtre par moduleType).   |
+| `createJsonData`   | Soumet des données pour un formulaire JSON.                      |
+| `getJsonData`      | Récupère une entrée de données de formulaire JSON.               |
+| `updateJsonData`   | Met à jour partiellement une entrée de données de formulaire.    |
+| `deleteJsonData`   | Supprime définitivement une entrée de données de formulaire.      |
+| `listAllJsonData`  | Liste toutes les entrées de données de formulaires JSON.         |
+
+### CSAT (endpoints publics)
+
+| Action           | Description                                                              |
+|------------------|--------------------------------------------------------------------------|
+| `getCsatForm`    | Récupère un formulaire CSAT public (orgId + token).                     |
+| `submitCsatForm` | Soumet une réponse CSAT (rating 1–5, commentaire optionnel).            |
+
+## Canaux custom (custom channels)
+
+- **Création de tickets sur un canal custom** : l'action *Create Ticket* expose un
+  champ **« Custom Channel Source »**. Lorsqu'il est renseigné (par exemple
+  `twitter_dm`), cet identifiant est utilisé comme `source` du ticket à la place
+  du menu déroulant *Source*. Le canal doit **déjà exister** dans easiware (créé
+  depuis l'interface web) — l'API publique ne permet pas de créer des canaux.
+- **Filtres de recherche** : les actions *Search Tickets* et *Find Tickets (POST
+  body)* exposent un champ **« Custom Sources »**. Les identifiants saisis
+  (séparés par des virgules) sont fusionnés avec les sources sélectionnées dans
+  le menu déroulant *Source* pour filtrer les résultats.
+- **Limites de l'API publique** : la gestion des canaux custom (création,
+  modification, suppression — CRUD) ainsi que l'endpoint `/ticket-source` **ne
+  sont pas exposés** par l'API publique easiware. Ces endpoints sont réservés à
+  l'application web et ne peuvent donc pas être intégrés dans la piece.
 
 ### Divers (misc)
 
@@ -100,7 +187,7 @@ Les triggers reposent sur des webhooks easiware (`POST {appUrl}/v1/webhooks` à 
 |-------------------|--------------------------------------------|----------------------------------------------------------|
 | `ticket_created`  | `create` (catégorie `ticket`)              | Déclenché à la création d'un nouveau ticket.             |
 | `contact_created` | `create` (catégorie `contact`)             | Déclenché à la création d'un nouveau contact.            |
-| `ticket_event`    | Au choix via liste déroulante (catégorie `ticket`) | Déclenché à la réception d'un événement ticket. Types disponibles : `create`, `note`, `subject`, `status`, `category`, `priority`, `agent`, `currentChannel`, `contact`, `message`, `solicitation`, `delete`, `restore`. |
+| `ticket_event`    | Au choix via liste déroulante (catégorie `ticket`) | Déclenché à la réception d'un événement ticket. Types disponibles : `create`, `note`, `subject`, `status`, `category`, `priority`, `agent`, `currentChannel`, `contact`, `message`, `solicitation`, `delete`, `restore`, `competence_group`, `ai_request_summary`, `ai_summary`, `ai_request_terminated`, `ai_auto_categorized`, `ticket_link`, `ticket_unlink`, `ticket_suggestion`, `average_handling_time`, `csat_rating`, `csat_comment`, `csat_email_sent`. |
 
 ## Développement et déploiement
 

@@ -1,23 +1,13 @@
 import { createAction, Property } from '@activepieces/pieces-framework';
-import { httpClient, HttpMethod, QueryParams } from '@activepieces/pieces-common';
+import { httpClient, HttpMethod } from '@activepieces/pieces-common';
 import { easiwareAuth, easiwareAuthType } from '../..';
+import { buildHeaders, sanitize, base, pageProp, limitProp } from './common';
 
 /************************************
- * HELPER UTIL
+ * HELPER UTIL — re-exported from common.ts
+ * (kept here so existing imports keep working)
  ***********************************/
-const buildHeaders = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-  'Content-Type': 'application/json',
-});
-
-const sanitize = (obj: Record<string, unknown>): QueryParams =>
-  Object.fromEntries(
-    Object.entries(obj)
-      .filter(([, v]) => v !== undefined && v !== null && v !== '')
-      .map(([k, v]) => [k, String(v)]) // <-- conversion ici
-  );
-
-const base = (url: string) => url.replace(/\/$/, '');
+export { buildHeaders, sanitize, base, pageProp, limitProp } from './common';
 
 /************************************
  * STATUS & AUTH INFO
@@ -110,6 +100,8 @@ export const searchUsers = createAction({
   displayName: 'Search Users',
   description: "Search your organization's users",
   props: {
+    page: pageProp,
+    limit: limitProp,
     search: Property.ShortText({ displayName: 'Search', required: false }),
     email: Property.ShortText({ displayName: 'Email', required: false }),
     enabled: Property.Checkbox({ displayName: 'Enabled only', required: false }),
@@ -124,6 +116,11 @@ export const searchUsers = createAction({
           { label: 'Agent', value: 'agent' },
         ],
       },
+    }),
+    competenceGroupsId: Property.ShortText({
+      displayName: 'Competence Groups ID',
+      description: 'Filter users belonging to the given competence group(s).',
+      required: false,
     }),
   },
   async run(ctx) {

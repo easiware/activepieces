@@ -11,9 +11,25 @@ import { getContactFromID, searchContact, createContact,
     updateContact, listContactCustomFields, getContactCustomFieldChoices } from './lib/actions/contact';
 import { getApiStatus, getAuthInfo, searchCategories,
     getCategoryFromID, searchUsers, getUserFromID, } from './lib/actions/misc';
-import { getTicketFromID, createTicket, updateTicket, getTicketMessages,
+import { getTicketFromID, searchTickets, createTicket, updateTicket, getTicketMessages,
     addMessageToTicket, searchTicketEvents, getTicketEventFromID,
     listTicketCustomFields, getTicketCustomFieldChoices, findTicketsByBody, } from './lib/actions/ticket';
+import { searchCompetenceGroups, getCompetenceGroup } from './lib/actions/competence-group';
+import {
+    listWebhooks, getWebhook, createWebhook, updateWebhook,
+    detachWebhook, deleteWebhook,
+} from './lib/actions/webhook';
+import { listTemplates, getTemplate } from './lib/actions/template';
+import { searchTicketMessages, getTicketMessage } from './lib/actions/ticket-message';
+import {
+    searchKnowledgeBase, createKnowledgeBase, getKnowledgeBase, updateKnowledgeBase,
+} from './lib/actions/knowledge-base';
+import { listLayouts, getLayout } from './lib/actions/layout';
+import {
+    createJsonForm, getJsonForm, updateJsonForm, deleteJsonForm, listJsonForms,
+    createJsonData, getJsonData, updateJsonData, deleteJsonData, listAllJsonData,
+} from './lib/actions/json-form';
+import { getCsatForm, submitCsatForm } from './lib/actions/csat';
 
 const markdownPropertyDescription = `
   **Enable API key:**
@@ -98,8 +114,8 @@ export const easiware = createPiece({
     getUserFromID,
 
     getTicketFromID,
-    //searchTickets,
-    createTicket, 
+    searchTickets,
+    createTicket,
     updateTicket,
     getTicketMessages,
     addMessageToTicket,
@@ -108,6 +124,44 @@ export const easiware = createPiece({
     listTicketCustomFields,
     getTicketCustomFieldChoices,
     findTicketsByBody,
+
+    searchCompetenceGroups,
+    getCompetenceGroup,
+
+    listWebhooks,
+    getWebhook,
+    createWebhook,
+    updateWebhook,
+    detachWebhook,
+    deleteWebhook,
+
+    listTemplates,
+    getTemplate,
+
+    searchTicketMessages,
+    getTicketMessage,
+
+    searchKnowledgeBase,
+    createKnowledgeBase,
+    getKnowledgeBase,
+    updateKnowledgeBase,
+
+    listLayouts,
+    getLayout,
+
+    createJsonForm,
+    getJsonForm,
+    updateJsonForm,
+    deleteJsonForm,
+    listJsonForms,
+    createJsonData,
+    getJsonData,
+    updateJsonData,
+    deleteJsonData,
+    listAllJsonData,
+
+    getCsatForm,
+    submitCsatForm,
 
     createCustomApiCallAction({
       baseUrl: (auth) => (auth as unknown as easiwareAuthType).appUrl,
